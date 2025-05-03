@@ -1,0 +1,9 @@
+[package]
+name = "lygos-lexer"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+lygos-token = { path = "../lygos-token/" }
+thiserror.workspace = true
+lazy_static.workspace = true

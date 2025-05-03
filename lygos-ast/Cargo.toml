@@ -1,0 +1,12 @@
+[package]
+name = "lygos-ast"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+lygos-logging = { path = "../lygos-logging/" }
+lygos-macros = { path = "../lygos-macros/" }
+lygos-token = { path = "../lygos-token/" }
+lygos-util = { path = "../lygos-util/" }
+lygos-llvm = { path = "../lygos-llvm/" }
+lazy_static.workspace = true

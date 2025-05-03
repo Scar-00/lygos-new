@@ -1,0 +1,25 @@
+[package]
+name = "lygos"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+members = ["lygos-lexer", "lygos-parser", "lygos-ast", "lygos-token", "lygos-llvm", "lygos-logging", "lygos-macros", "lygos-util"]
+
+[dependencies]
+lygos-lexer = { path = "./lygos-lexer/" }
+lygos-parser = { path = "./lygos-parser/" }
+lygos-token = { path = "./lygos-token/" }
+lygos-logging = { path = "./lygos-logging/" }
+lygos-macros = { path = "./lygos-macros/" }
+lygos-ast = { path = "./lygos-ast/" }
+lygos-llvm = { path = "./lygos-llvm/" }
+lygos-util = { path = "./lygos-util/" }
+clap.workspace = true
+
+[workspace.dependencies]
+clap = { version = "4.5.37", features = ["derive"] }
+thiserror = "2.0.12"
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
+lazy_static = "1.5.0"

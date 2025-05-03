@@ -1,0 +1,10 @@
+[package]
+name = "lygos-parser"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+lygos-util = { path = "../lygos-util/" }
+lygos-token = { path = "../lygos-token/" }
+lygos-ast = { path = "../lygos-ast/" }
+lygos-logging = { path = "../lygos-logging/" }
