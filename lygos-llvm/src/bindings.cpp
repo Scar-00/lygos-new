@@ -97,6 +97,8 @@ extern "C" {
     }
 
     void ContextSetOpaquePointers(llvm::LLVMContext *ctx, bool enable) {
+        (void)ctx;
+        (void)enable;
         //ctx->setOpaquePointers(enable);
     }
 

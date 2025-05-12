@@ -63,6 +63,17 @@ impl<'file> Lexer<'file> {
         })
     }
 
+    pub fn from(chars: Vec<char>) -> Self {
+        let curr = chars[0];
+        Self{
+            file: Path::new(""),
+            src: chars,
+            curr,
+            index: 0,
+            line_index: 0
+        }
+    }
+
     pub fn get_tokens(&mut self) -> Vec<Token> {
         let mut tokens = Vec::new();
         loop {

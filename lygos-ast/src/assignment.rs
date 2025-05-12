@@ -4,8 +4,8 @@ use crate::AST;
 
 #[derive(Debug, Visitable)]
 pub struct AssignmentExpr {
-    lhs: Box<AST>,
-    rhs: Box<AST>,
+    pub lhs: Box<AST>,
+    pub rhs: Box<AST>,
 }
 
 impl AssignmentExpr {

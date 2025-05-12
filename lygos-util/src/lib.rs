@@ -1,3 +1,6 @@
+pub mod tests;
+pub mod cli;
+
 /// # Safety
 /// this function is __REALLY__ unsafe and should be removed in the future
 #[allow(clippy::mut_from_ref)]
@@ -27,6 +30,10 @@ impl<T> Pointer<T> {
 
     pub fn is_null(&self) -> bool {
         self.inner.is_null()
+    }
+
+    pub fn is_some(&self) -> bool {
+        !self.inner.is_null()
     }
 }
 

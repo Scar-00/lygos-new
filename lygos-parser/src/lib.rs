@@ -55,7 +55,7 @@ impl Parser {
 
     fn parse_globals(&mut self) -> AST {
         match self.at().typ {
-            //TokenType::KwStruct => self.parse_struct_decl(),
+            TokenType::KwStruct => self.parse_struct_decl(),
             TokenType::KwFn => self.parse_func(),
             //TokenType::KwImpl => self.parse_impl(),
             //TokenType::KwStatic => self.parse_static(),
@@ -68,24 +68,24 @@ impl Parser {
         }
     }
 
-    /*fn parse_struct_field(&mut self) -> StructField {
+    fn parse_struct_field(&mut self) -> StructField {
         let id = self.eat().clone();
 
-        if id.typ != TokenType::Id {
-            token_expected(&self.peek(-1).loc, "unexpected token found", "expected identifier in field declaration");
-        }
+        let TokenType::Id(id_value) = &id.typ else {
+            Logger::token_expected(&self.peek(-1).loc, "unexpected token found", "expected identifier in field declaration");
+        };
 
         if self.eat().typ != TokenType::Colon {
-            token_expected(&self.peek(-1).loc, "missing type specifier", format!("field `{}` requires a type", self.peek(-2).value).as_str());
+            Logger::token_expected(&self.peek(-1).loc, "missing type specifier", format!("field `{}` requires a type", id_value));
         }
 
         let typ = self.parse_type_spec();
 
         if self.eat().typ != TokenType::Semi {
-            token_expected(&self.peek(-1).loc, "unexpected token found", "expected `;` after field declaration");
+            Logger::token_expected(&self.peek(-1).loc, "unexpected token found", "expected `;` after field declaration");
         }
 
-        return StructField{ typ, id: Tagged::new(id.loc, id.value) };
+        StructField{ typ, id: Tagged::new(id.loc, id_value.clone()) }
     }
 
     fn parse_struct_decl(&mut self) -> AST {
@@ -93,12 +93,12 @@ impl Parser {
 
         let id = self.eat().clone();
 
-        if id.typ != TokenType::Id {
-            token_expected(&id.loc, "unexpected token found", "expected identifier after keyword `struct`");
-        }
+        let TokenType::Id(id_value) = &id.typ else {
+            Logger::token_expected(&id.loc, "unexpected token found", "expected identifier after keyword `struct`");
+        };
 
         if self.eat().typ != TokenType::CurlyLeft {
-            token_expected_help(&self.peek(-1).loc, "unexpected token found", "expected `{` after struct identifier", "try adding `{`");
+            Logger::token_expected_help(&self.peek(-1).loc, "unexpected token found", "expected `{` after struct identifier", "try adding `{`");
         }
 
         let mut fields = Vec::new();
@@ -107,12 +107,12 @@ impl Parser {
         }
         self.eat();
 
-        if self.eat().typ != TokenType::Semi {
-            token_expected(&self.peek(-1).loc, "unexpected token found", "expected, `;` after struct declaration");
-        }
+        /*if self.eat().typ != TokenType::Semi {
+            Logger::token_expected(&self.peek(-1).loc, "unexpected token found", "expected, `;` after struct declaration");
+        }*/
 
-        return AST::StructDef(StructDef::new(Tagged::new(id.loc, id.value), fields));
-    }*/
+        AST::StructDef(StructDef::new(Tagged::new(id.loc, id_value.to_string()), fields))
+    }
 
     fn parse_func_arg(&mut self) -> FunctionArg {
         let id = self.eat().clone();
@@ -190,7 +190,7 @@ impl Parser {
             self.eat();
             self.parse_type_spec()
         }else {
-            Type::Path(Path::new(Location::new("internal".into(), 0..1), "void".to_string()))
+            Type::Path(Path::new(Location::new("internal", 0..1), "void".to_string()))
         };
 
         /*let c_impl = if !self.current_impl.is_null() {
@@ -724,7 +724,7 @@ impl Parser {
 
     fn parse_assignment_expr(&mut self) -> AST {
         //let lhs = self.parse_index_expr();
-        let lhs = self.parse_call_expr();
+        let lhs = self.parse_member_expr();
         if self.at().typ == TokenType::Equals {
             self.eat();
             let rhs = self.parse_expr();
@@ -741,23 +741,25 @@ impl Parser {
             if self.eat().typ != TokenType::BraceRight {
                 Logger::token_expected(&self.peek(-1).loc, "unexpected token found", "expected closing bracket `]`");
             }
-            obj = AST::AccessExpr(AccessExpr::new(Box::new(obj), Box::new(idx)));
+            obj = AST::AccessExpr(AccessExpr(Box::new(obj), Box::new(idx)));
         }
         return obj;
-    }
+    }*/
 
     fn parse_member_expr(&mut self) -> AST {
         let mut obj = self.parse_call_expr();
         while self.at().typ == TokenType::Dot || self.at().typ == TokenType::Arrow {
             let deref = self.eat().typ == TokenType::Arrow;
             let member = self.parse_call_expr();
-            obj = match member {
-                AST::CallExpr(_) => AST::MemberCallExpr(MemberCallExpr::new(Box::new(obj), Box::new(member), deref)),
-                _ => AST::MemberExpr(MemberExpr::new(Box::new(obj), Box::new(member), deref))
+            obj = if let AST::CallExpr(_) = member {
+                todo!("");
+                //AST::MemberCallExpr(MemberCallExpr::new(Box::new(obj), Box::new(member), deref))
+            }else {
+                AST::MemberExpr(MemberExpr::Member{ obj: Box::new(obj), member: Box::new(member), deref })
             };
         }
-        return obj;
-    }*/
+        obj
+    }
 
     fn parse_call_expr(&mut self) -> AST {
         //let mut callee = self.parse_resolution_expr();
@@ -952,10 +954,54 @@ impl Parser {
         return AST::ClosureExpr(ClosureExpr::new(loc.clone(), Function::new(Tagged::new(loc, "".into()), None, args, body, ret_type, true, false, Vec::new())));
     }*/
 
+    fn parse_struct_literal(&mut self) -> AST {
+        let struct_ident = self.eat().clone();
+        if !matches!(struct_ident.typ, TokenType::Id(_)) {
+            unreachable!();
+        };
+        if TokenType::CurlyLeft != self.eat().typ {
+            unreachable!();
+        }
+        let mut values: Vec<(Option<Tagged<String>>, AST)> = Vec::new();
+        while self.at().typ != TokenType::CurlyRight {
+            let mut name = None;
+            if self.at().typ == TokenType::Dot {
+                self.eat();
+                let id = self.eat().clone();
+                let TokenType::Id(_) = id.typ else {
+                    Logger::token_expected(&id.loc, "unexpected token found", "expected `identifier` after `.` in initializer list");
+                };
+
+                name = Some(id.into());
+
+                if self.eat().typ != TokenType::Equals {
+                    Logger::token_expected(&self.peek(-1).loc, "unexpected token found", "expected `=` between member and value");
+                }
+            }
+            values.push((name, self.parse_expr()));
+
+            if self.at().typ == TokenType::CurlyRight {
+                break;
+            }
+
+            if self.eat().typ != TokenType::Comma {
+                Logger::token_expected(&self.peek(-1).loc, "unexpected token found", "initializer list values need to be comma `,` seperated");
+            }
+        }
+        self.eat();
+        AST::StructLiteral(StructLiteral::new(struct_ident.into(), values))
+    }
+
     fn parse_primary_expr(&mut self) -> AST {
         let tok = self.at().clone();
         match &tok.typ {
-            TokenType::Id(_) => AST::Identifier(Identifier::new(self.eat().clone().into())),
+            TokenType::Id(_) => {
+                if self.peek(1).typ == TokenType::CurlyLeft {
+                    self.parse_struct_literal()
+                }else {
+                    AST::Identifier(Identifier::new(self.eat().clone().into()))
+                }
+            },
             TokenType::Integer(_) => AST::NumberLiteral(NumberLiteral::new(self.eat().clone().into(), NumberType::Int)),
             TokenType::Float(_) => AST::NumberLiteral(NumberLiteral::new(self.eat().clone().into(), NumberType::Float)),
             TokenType::Char(_) => AST::NumberLiteral(NumberLiteral::new(self.eat().clone().into(), NumberType::Char)),
@@ -1026,7 +1072,7 @@ impl Parser {
                 self.eat();
                 self.parse_type_spec()
             }else {
-                Type::Path(Path::new(Location::new("internal".into(), 0..1), "void".to_string()))
+                Type::Path(Path::new(Location::new("internal", 0..1), "void".to_string()))
             };
 
             return Type::FuncPtr(FuncPtr::new(Location::new(self.peek(-1).loc.file.clone(), start..self.peek(-1).loc.range.end), params, ret_type));

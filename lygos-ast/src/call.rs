@@ -2,7 +2,6 @@ use lygos_macros::Visitable;
 
 use crate::AST;
 
-
 #[derive(Debug, Visitable)]
 pub struct CallExpr {
     pub caller: Box<AST>,

@@ -1,3 +1,4 @@
+use lygos_llvm::value::BasicBlock;
 use lygos_macros::Visitable;
 use lygos_token::Tagged;
 use crate::{types::Type, Block};
@@ -8,6 +9,7 @@ pub struct FunctionArg {
     pub typ: Type,
 }
 
+//  TODO(S): make ret_type optional to indicate `void` return type (way clearer)
 #[derive(Debug, Visitable)]
 pub struct Function {
     pub id: Tagged<String>,
@@ -18,12 +20,12 @@ pub struct Function {
     pub ret_type: Type,
     pub is_def: bool,
     pub is_var_arg: bool,
-    //pub ret_block: Option<llvm::BasicBlock>,
+    pub ret_block: Option<BasicBlock>,
     //attrs: Vec<Attribute>,
 }
 
 impl Function {
     pub fn new(id: Tagged<String>, args: Vec<FunctionArg>, body: Block, ret_type: Type, is_def: bool, is_var_arg: bool) -> Self {
-        Self{ id: id.clone(), name_mangeled: id.inner().to_string(), args, body, ret_type, is_def, is_var_arg }
+        Self{ id: id.clone(), name_mangeled: id.inner().to_string(), args, body, ret_type, is_def, is_var_arg, ret_block: None }
     }
 }

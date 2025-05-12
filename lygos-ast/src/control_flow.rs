@@ -5,8 +5,8 @@ use crate::AST;
 
 #[derive(Debug, Visitable)]
 pub struct ReturnExpr {
-    loc: Location,
-    value: Option<Box<AST>>,
+    pub loc: Location,
+    pub value: Option<Box<AST>>,
 }
 
 impl ReturnExpr {

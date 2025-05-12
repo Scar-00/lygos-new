@@ -36,8 +36,8 @@ pub enum NumberType {
 
 #[derive(Debug, Visitable)]
 pub struct NumberLiteral {
-    value: Tagged<String>,
-    typ: NumberType,
+    pub value: Tagged<String>,
+    pub typ: NumberType,
 }
 
 impl NumberLiteral {

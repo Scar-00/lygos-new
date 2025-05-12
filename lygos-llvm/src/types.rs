@@ -12,6 +12,18 @@ impl TypeRef {
         Self(v)
     }
 
+    pub fn get_int(ctx: &Context, width: usize) -> Self {
+        Self(unsafe{ ffi::GetIntType(ctx.ptr, width) })
+    }
+
+    pub fn get_void(ctx: &Context) -> Self {
+        Self(unsafe{ ffi::GetVoidType(ctx.ptr) })
+    }
+
+    pub fn get_ptr(base: Self, addr_space: u32) -> Self {
+        Self(unsafe{ ffi::GetPointerType(base.0, addr_space) })
+    }
+
     pub fn is_pointer_ty(&self) -> bool {
         unsafe{ ffi::TypeIsPointerType(self.0) }
     }

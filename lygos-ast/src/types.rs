@@ -25,41 +25,6 @@ lazy_static::lazy_static! {
     };
 }
 
-/*pub fn base_to_type<'s>(ty: &'s str, ctx: &crate::GenerationContext) -> Option<llvm::TypeRef> {
-    if !BaseTypes.contains(&ty) {
-        return None;
-    }
-
-    return match ty {
-        "i8" => Some(llvm::TypeRef::get_int(&ctx.ctx, 8)),
-        "i16" => Some(llvm::TypeRef::get_int(&ctx.ctx, 16)),
-        "i32" => Some(llvm::TypeRef::get_int(&ctx.ctx, 32)),
-        "i64" => Some(llvm::TypeRef::get_int(&ctx.ctx, 64)),
-
-        "u8" => Some(llvm::TypeRef::get_int(&ctx.ctx, 8)),
-        "u16" => Some(llvm::TypeRef::get_int(&ctx.ctx, 16)),
-        "u32" => Some(llvm::TypeRef::get_int(&ctx.ctx, 32)),
-        "u64" => Some(llvm::TypeRef::get_int(&ctx.ctx, 64)),
-
-        "f32" => Some(llvm::FloatTypeRef::get(&ctx.ctx).into()),
-        "f64" => Some(llvm::DoubleTypeRef::get(&ctx.ctx).into()),
-
-        "bool" => Some(llvm::TypeRef::get_int(&ctx.ctx, 1)),
-        "str" => {
-            Some(llvm::StructTypeRef::get(&ctx.ctx,
-                        &[
-                            llvm::TypeRef::get_ptr(llvm::TypeRef::get_int(&ctx.ctx, 8), 0),
-                            llvm::TypeRef::get_int(&ctx.ctx, 64)
-                        ],
-                        false).into())
-        },
-
-        "void" => Some(llvm::TypeRef::get_void(&ctx.ctx)),
-
-        _ => None,
-    }
-}*/
-
 #[derive(Debug, Clone)]
 pub struct Path {
     pub loc: Location,

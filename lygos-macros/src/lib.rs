@@ -9,8 +9,8 @@ pub fn visitable_impl(items: TokenStream) -> TokenStream {
     let fn_ident = format_ident!("visit_{}", ident.to_string().to_lowercase());
     quote! {
         impl #ident {
-            pub fn accept<V: crate::ASTVisitor>(&mut self, visitor: &mut V) -> V::Output {
-                visitor.#fn_ident(self)
+            pub fn accept<V: crate::ASTVisitor>(&mut self, visitor: &mut V, scope: &mut crate::Scope) -> V::Output {
+                visitor.#fn_ident(self, scope)
             }
         }
     }.into()
@@ -44,7 +44,7 @@ pub fn visitor(items: TokenStream) -> TokenStream {
     quote! {
         pub trait #ident {
             type Output;
-            #(fn #funcs(&mut self, node: &mut #types) -> Self::Output;)*
+            #(fn #funcs(&mut self, node: &mut #types, scope: &mut Scope) -> Self::Output;)*
         }
     }.into()
 }
@@ -60,8 +60,8 @@ pub fn visitor_impl(items: TokenStream) -> TokenStream {
             if let Some(tok) = list.tokens.clone().into_iter().next() {
                 let res = quote! {
                     impl #ident {
-                        pub fn accept(&mut self, visitor: &mut dyn #tok) -> #tok::Output {
-                            visitor.#fn_ident(self);
+                        pub fn accept(&mut self, visitor: &mut dyn #tok, scope: &mut Scope) -> #tok::Output {
+                            visitor.#fn_ident(self, scope);
                         }
                     }
                 }.into();
@@ -77,7 +77,7 @@ pub fn visitor_impl(items: TokenStream) -> TokenStream {
             let fn_ident = format_ident!("visit_{}", member.ident.clone().to_string().to_lowercase());
             let member_ident = member.ident;
             arms.push(quote! {
-                #ident::#member_ident(v) => visitor.#fn_ident(v),
+                #ident::#member_ident(v) => visitor.#fn_ident(v, scope),
             });
         }
         let arms = arms.iter();
@@ -85,7 +85,7 @@ pub fn visitor_impl(items: TokenStream) -> TokenStream {
             if let Some(tok) = list.tokens.clone().into_iter().next() {
                 let res = quote! {
                     impl #ident {
-                        pub fn accept<V: #tok>(&mut self, visitor: &mut V) -> V::Output {
+                        pub fn accept<V: #tok>(&mut self, visitor: &mut V, scope: &mut Scope) -> V::Output {
                             match self {
                                 #(#arms)*
                             }

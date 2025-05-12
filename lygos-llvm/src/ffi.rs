@@ -45,6 +45,7 @@ pub enum CastOps {
     AddrSpaceCast,
 }
 
+#[link(name = "bindings")]
 unsafe extern "C" {
     pub fn CreateContext() -> *mut ();
     pub fn DestroyContext(_: *mut ());

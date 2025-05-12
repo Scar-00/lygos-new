@@ -1,31 +1,26 @@
-use lygos_ast::{symbols::{Function as FunctionSymbol, Symbol, Variable}, *};
-use lygos_util as util;
+use lygos_ast::{symbols::{Function as FunctionSymbol, Symbol}, *};
+use lygos_logging::{ErrorLabel, Logger};
 
-pub struct SymbolCollector<> {
-    current_scope: util::Pointer<Scope>,
-}
+pub struct SymbolCollector;
 
 impl SymbolCollector {
     pub fn new() -> Self {
-        Self{
-            current_scope: util::Pointer::new(),
-        }
+        Self{}
     }
 }
 
 impl ASTVisitor for SymbolCollector {
     type Output = ();
 
-    fn visit_module(&mut self,node: &mut Module) -> Self::Output {
-        node.body.scope.set_parent(&self.current_scope);
-        self.current_scope.set_value(&node.body.scope);
+    fn visit_module(&mut self,node: &mut Module, scope: &mut Scope) -> Self::Output {
+        node.body.scope.set_parent(scope);
         node.body.body.iter_mut().for_each(|child| {
-            child.accept(self)
+            child.accept(self, &mut node.body.scope)
         });
     }
 
-    fn visit_function(&mut self,node: &mut Function) -> Self::Output {
-        node.body.scope.set_parent(&self.current_scope);
+    fn visit_function(&mut self,node: &mut Function, scope: &mut Scope) -> Self::Output {
+        node.body.scope.set_parent(scope);
         let func_sym = FunctionSymbol::new(
             node.id.clone(),
             node.name_mangeled.clone(),
@@ -33,14 +28,13 @@ impl ASTVisitor for SymbolCollector {
             node.ret_type.clone(),
             node.is_def
         );
-        self.current_scope.add_symbol(&node.name_mangeled, Symbol::Function(func_sym));
-        self.current_scope.set_value(&node.body.scope);
+        scope.add_symbol(&node.name_mangeled, Symbol::Function(func_sym));
         node.body.body.iter_mut().for_each(|child| {
-            child.accept(self)
+            child.accept(self, &mut node.body.scope)
         });
     }
 
-    fn visit_vardecl(&mut self,node: &mut VarDecl) -> Self::Output {
+    fn visit_vardecl(&mut self, _: &mut VarDecl, _: &mut Scope) -> Self::Output {
         /*let ty = match (node.typ, node.value) {
             (Some(ty), None) => {
                 ty
@@ -61,30 +55,48 @@ impl ASTVisitor for SymbolCollector {
         self.current_scope.add_symbol(node.id.inner(), Symbol::Variable(Var);*/
     }
 
-    fn visit_assignmentexpr(&mut self,node: &mut AssignmentExpr) -> Self::Output {
+    fn visit_assignmentexpr(&mut self, _: &mut AssignmentExpr, _: &mut Scope) -> Self::Output {
     }
 
-    fn visit_callexpr(&mut self,node: &mut CallExpr) -> Self::Output {
+    fn visit_memberexpr(&mut self, _: &mut MemberExpr, _: &mut Scope) -> Self::Output {}
+
+    fn visit_callexpr(&mut self, _: &mut CallExpr, _: &mut Scope) -> Self::Output {
     }
 
-    fn visit_returnexpr(&mut self,node: &mut ReturnExpr) -> Self::Output {
+    fn visit_returnexpr(&mut self, _: &mut ReturnExpr, _: &mut Scope) -> Self::Output {
     }
 
-    fn visit_binaryexpr(&mut self,node: &mut BinaryExpr) -> Self::Output {
+    fn visit_binaryexpr(&mut self, _: &mut BinaryExpr, _: &mut Scope) -> Self::Output {
     }
 
-    fn visit_typealias(&mut self,node: &mut TypeAlias) -> Self::Output {
+    fn visit_structdef(&mut self, node: &mut StructDef, scope: &mut Scope) -> Self::Output {
+        if let Some(field) = node.is_self_referential() {
+            Logger::error_msg_label_info(
+                "cannot self referece",
+                ErrorLabel::from(&field.typ.get_loc(), "referece to `Self`"),
+                "try adding a `*` or `&`"
+            );
+        }
+
+        if let Some(strct) = scope.try_resolve_symbol(&node.id) {
+            if let Symbol::Struct(strct) = strct {
+                strct.resolve(node.id.clone(), node.fields.clone());
+            }
+        }else {
+            let r#struct = symbols::Struct::new(node.id.clone(), node.fields.clone());
+            scope.add_symbol(node.id.inner(), Symbol::Struct(r#struct));
+        }
     }
 
-    fn visit_numberliteral(&mut self,node: &mut NumberLiteral) -> Self::Output {
-    }
+    fn visit_typealias(&mut self, _: &mut TypeAlias, _: &mut Scope) -> Self::Output {}
 
-    fn visit_stringliteral(&mut self,node: &mut StringLiteral) -> Self::Output {
-    }
+    fn visit_numberliteral(&mut self, _: &mut NumberLiteral, _: &mut Scope) -> Self::Output {}
 
-    fn visit_staticliteral(&mut self,node: &mut StaticLiteral) -> Self::Output {
-    }
+    fn visit_stringliteral(&mut self, _: &mut StringLiteral, _: &mut Scope) -> Self::Output {}
 
-    fn visit_identifier(&mut self,node: &mut Identifier) -> Self::Output {
-    }
+    fn visit_structliteral(&mut self, _: &mut StructLiteral, _: &mut Scope) -> Self::Output {}
+
+    fn visit_staticliteral(&mut self, _: &mut StaticLiteral, _: &mut Scope) -> Self::Output {}
+
+    fn visit_identifier(&mut self, _: &mut Identifier, _: &mut Scope) -> Self::Output {}
 }

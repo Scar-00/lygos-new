@@ -1,15 +1,17 @@
 use std::collections::{HashMap, HashSet};
 
 use lygos_llvm::{value::ValueRef, types::TypeRef};
+use lygos_logging::{ErrorLabel, Logger};
 use lygos_token::{Location, Tagged};
 
-use crate::{types::Type, FunctionArg};
+use crate::{types::Type, FunctionArg, StructField};
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 pub enum Symbol {
     Variable(Variable),
     Function(Function),
-    //Struct(Struct),
+    Struct(Struct),
     //Enum(Enum),
     //Macro(Macro),
     //TypeAlias(TypeAlias),
@@ -21,7 +23,7 @@ impl Symbol {
         match self {
             Symbol::Variable(var) => &var.loc,
             Symbol::Function(func) => func.name.loc(),
-            //Symbol::Struct(s) => s.name.loc(),
+            Symbol::Struct(s) => s.name.loc(),
             //Symbol::Enum(e) => e.name.loc(),
             //Symbol::Macro(m) => m.inner.id.loc(),
             //Symbol::TypeAlias(ty) => ty.id.loc(),
@@ -58,19 +60,19 @@ impl Function {
         Self{ name, name_mangeled, args, ret_type, is_definition }
     }
 }
-/*
+
 #[derive(Debug, Clone)]
 pub struct Struct {
     pub name: Tagged<String>,
     pub fields: Vec<StructField>,
-    functions: HashMap<String, Function>,
-    traits: HashSet<String>,
-    pub generated: Option<llvm::TypeRef>,
+    pub functions: HashMap<String, Function>,
+    pub traits: HashSet<String>,
+    pub generated: Option<TypeRef>,
     pub resolved: bool,
 }
 
 impl Struct {
-    pub fn new(name: Tagged<String>, fields: Vec<crate::ast::StructField>) -> Self {
+    pub fn new(name: Tagged<String>, fields: Vec<StructField>) -> Self {
         Self{ name, fields, functions: HashMap::new(), traits: HashSet::new(), generated: None, resolved: true }
     }
 
@@ -82,19 +84,19 @@ impl Struct {
         self.functions.insert(func.name.inner().clone(), func);
     }
 
-    pub fn get_function<S: AsRef<str>>(&mut self, loc: &Loc, id: S) -> &mut Function {
+    pub fn get_function<S: AsRef<str>>(&mut self, loc: &Location, id: S) -> &mut Function {
         if !self.functions.contains_key(id.as_ref()) {
-            error_msg_label(
+            Logger::error_msg_label(
                 "unknown function",
-                ErrorLabel::from(loc, &format!("unknown function `{}` in struct `{}`", id.as_ref(), self.name.inner()).as_str())
+                ErrorLabel::from(loc, format!("unknown function `{}` in struct `{}`", id.as_ref(), self.name.inner()))
             );
         }
-        return self.functions.get_mut(id.as_ref()).unwrap();
+        self.functions.get_mut(id.as_ref()).unwrap()
     }
 
     pub fn register_trait_impl<S: AsRef<str>>(&mut self, name: &Tagged<S>) {
         if self.traits.contains(name.inner().as_ref()) {
-            error_msg_label(format!("trait `{}` is already implemented for type `{}`", name.inner().as_ref(), self.name.inner()).as_str(),
+            Logger::error_msg_label(format!("trait `{}` is already implemented for type `{}`", name.inner().as_ref(), self.name.inner()).as_str(),
                 ErrorLabel::from(name.loc(), "cannot reimplement trait")
             );
         }
@@ -102,16 +104,16 @@ impl Struct {
     }
 
     pub fn implements_trait<S: AsRef<str>>(&self, name: S) -> bool {
-        return self.traits.contains(name.as_ref());
+        self.traits.contains(name.as_ref())
     }
 
-    pub fn resolve(&mut self, name: Tagged<String>, fields: Vec<crate::ast::StructField>) {
+    pub fn resolve(&mut self, name: Tagged<String>, fields: Vec<StructField>) {
         self.resolved = true;
         self.name = name;
         self.fields = fields;
     }
 }
-
+/*
 #[derive(Debug, Clone)]
 pub struct Enum {
     name: Tagged<String>,

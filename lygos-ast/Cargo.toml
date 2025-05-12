@@ -9,4 +9,5 @@ lygos-macros = { path = "../lygos-macros/" }
 lygos-token = { path = "../lygos-token/" }
 lygos-util = { path = "../lygos-util/" }
 lygos-llvm = { path = "../lygos-llvm/" }
+lygos-lexer = { path = "../lygos-lexer/" }
 lazy_static.workspace = true

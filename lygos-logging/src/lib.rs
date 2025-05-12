@@ -28,7 +28,7 @@ impl ErrorLabel {
 
 impl<'a> From<&'a ErrorLabel> for Label<(String, Range<usize>)> {
     fn from(value: &'a ErrorLabel) -> Self {
-        Label::new((value.loc.file.to_string_lossy().to_string(), value.loc.range.clone()))
+        Label::new((value.loc.file.display().to_string(), value.loc.range.clone()))
             .with_message(value.msg.clone())
             .with_color(Color::Red)
     }
@@ -62,7 +62,7 @@ impl Logger {
     }
 
     pub fn token_expected(loc: &Location, msg: impl AsRef<str>, info: impl AsRef<str>) -> ! {
-        let path = loc.file.to_str().unwrap();
+        let path = &loc.file.display().to_string();
         Report::build(ReportKind::Error, (path, loc.range.clone()))
             .with_message(msg.as_ref())
             .with_label(
@@ -78,7 +78,7 @@ impl Logger {
     }
 
     pub fn token_expected_help(loc: &Location, msg: impl AsRef<str>, info: impl AsRef<str>, help: impl AsRef<str>) -> ! {
-        let path = loc.file.to_str().unwrap();
+        let path = &loc.file.display().to_string();
         Report::build(ReportKind::Error, (path, loc.range.clone()))
             .with_message(msg.as_ref())
             .with_label(
@@ -95,7 +95,7 @@ impl Logger {
     }
 
     pub fn error_msg(path: impl AsRef<Path>, msg: impl AsRef<str>) -> ! {
-        let path = path.as_ref().to_str().unwrap();
+        let path = &path.as_ref().display().to_string();
         Report::build(ReportKind::Error, (path, 0..=0))
             .with_message(msg.as_ref())
             .with_config(LOGGER.with_borrow(|logger| logger.config))

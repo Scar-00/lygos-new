@@ -22,6 +22,10 @@ pub mod vardecl;
 pub use vardecl::*;
 pub mod assignment;
 pub use assignment::*;
+pub mod strct;
+pub use strct::*;
+pub mod access;
+pub use access::*;
 
 use lygos_macros::{Visitor, VisitorImpl};
 
@@ -35,7 +39,7 @@ pub enum AST {
     VarDecl(VarDecl),
 
     AssignmentExpr(AssignmentExpr),
-    //MemberExpr(MemberExpr),
+    MemberExpr(MemberExpr),
     CallExpr(CallExpr),
     //MemberCallExpr(MemberCallExpr),
     //AccessExpr(AccessExpr),
@@ -51,8 +55,8 @@ pub enum AST {
     BreakExpr(BreakExpr),
     ClosureExpr(ClosureExpr),*/
 
-    /*StructDef(StructDef),
-    EnumDef(EnumDef),
+    StructDef(StructDef),
+    /*EnumDef(EnumDef),
     Impl(Impl),
     Trait(Trait),
     Macro(Macro),
@@ -61,8 +65,22 @@ pub enum AST {
     NumberLiteral(NumberLiteral),
     StringLiteral(StringLiteral),
     //InitializerList(InitializerListExpr),
+    StructLiteral(StructLiteral),
     StaticLiteral(StaticLiteral),
     Identifier(Identifier),
+}
+
+impl AST {
+    pub fn needs_load(&self) -> bool {
+        match self {
+            AST::Identifier(_) | AST::StructLiteral(_) => true,
+            AST::MemberExpr(MemberExpr::Member { member, .. }) => {
+                // !matches!(member, AST::CallExpr(_))
+                true
+            }
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug)]

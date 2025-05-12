@@ -37,8 +37,8 @@ pub struct Location {
 }
 
 impl Location {
-    pub fn new(file: PathBuf, range: Range<usize>) -> Self {
-        Self{ file, range }
+    pub fn new(file: impl Into<PathBuf>, range: Range<usize>) -> Self {
+        Self{ file: file.into(), range }
     }
 }
 

@@ -1,19 +1,12 @@
-use std::path::PathBuf;
-
 use lygos_lexer::Lexer;
-use clap::Parser as _;
 use lygos_parser::Parser;
+use lygos_util::cli::CliArgs;
 
-#[derive(Debug, clap::Parser)]
-struct CliArgs {
-    input: PathBuf,
-}
-
-const CLI: &'static [&str] = &["./simple", concat!(concat!(std::env!("CARGO_MANIFEST_DIR"), "/tests"), "/simple_program.ly")];
+const CLI: &'static [&str] = &["./simple", lygos_util::tests::concat!(lygos_util::tests::TEST_DIR, "/simple_program.ly")];
 
 #[test]
 fn simple() -> Result<(), Box<dyn std::error::Error>> {
-    let args = CliArgs::parse_from(CLI);
+    let args = CliArgs::deligate_parse_from(CLI);
 
     let mut lexer = Lexer::new(&args.input)?;
     let mut parser = Parser::from(lexer.get_tokens());
