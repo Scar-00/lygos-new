@@ -8,8 +8,9 @@ use lygos_lexer::Lexer;
 use lygos_parser::Parser;
 use lygos_util::cli::CliArgs;
 use lygos_llvm::{context::Context, module::Module, builder::IRBuilder};
+use lygos_util::cli::CommandExt;
 
-use std::{os::unix::process::CommandExt, process::Command};
+use std::process::Command;
 
 const CLI: &[&str] = &["./simple", lygos_util::tests::concat!(lygos_util::tests::TEST_DIR, "/simple_program.ly")];
 
@@ -50,7 +51,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let exe_path = args.input.with_extension("");
     let mut cmd = Command::new("clang");
     let cmd = cmd.arg("-o").arg(exe_path).arg(obj_path).arg("-lc");
-    println!("{:?}", cmd.exec());
-
+    println!("{}", cmd.display());
     Ok(())
 }
