@@ -1,8 +1,8 @@
 use lygos_llvm::{builder::IRBuilder, context::Context, module::Module as LLVMModule, types::{DoubleTypeRef, FloatTypeRef, FunctionTypeRef, TypeRef}, value::{BasicBlock, ConstantFP, ConstantInt, Function as LLVMFunction, ValueRef}};
-use lygos_ast::{symbols::{Symbol, Variable}, types::Type, *};
+use lygos_ast::{symbols::{self, Symbol, Variable}, types::Type, *};
 use lygos_logging::{ErrorLabel, Logger};
 use lygos_token::{Location, Tagged};
-use crate::type_getter::TypeGenerator;
+use crate::type_getter::{get_function, TypeGenerator};
 
 pub struct CodeGenerator<'a> {
     ctx: GenerationContext<'a>,
@@ -229,8 +229,8 @@ impl ASTVisitor for CodeGenerator<'_> {
         }
     }
 
-    fn visit_callexpr(&mut self, _: &mut CallExpr, _: &mut Scope) -> Self::Output {
-        todo!()
+    fn visit_callexpr(&mut self, node: &mut CallExpr, scope: &mut Scope) -> Self::Output {
+        Some(call_gen_code_internal(self, node, scope, None, None))
     }
 
     fn visit_returnexpr(&mut self, node: &mut ReturnExpr, scope: &mut Scope) -> Self::Output {
@@ -389,3 +389,130 @@ impl ASTVisitor for CodeGenerator<'_> {
         Some(var.alloca)
     }
 }
+
+fn call_gen_code_internal(generator: &mut CodeGenerator, call: &mut CallExpr, scope: &mut Scope, mut obj: Option<(&mut AST, bool)>, obj_value: Option<ValueRef>) -> ValueRef {
+    let (name, typ) = get_function(call, scope, &mut obj, &mut generator.type_generator);
+
+    let mut func: Option<LLVMFunction> = generator.ctx.module.get_function(&name).map(|i| i.into());
+
+    let mut is_ptr = false;
+    let r#fn = if let Type::FuncPtr(func_ptr) = &typ {
+        let caller_ty = call.caller.accept(&mut generator.type_generator, scope);
+        let ptr = call.caller.accept(generator, scope).unwrap();
+        let load = generator.ctx.builder.create_load(&scope.resolve_type(&caller_ty, &generator.ctx), &ptr);
+        func = Some(LLVMFunction::from(load));
+        is_ptr = true;
+        let args = func_ptr.params.iter().map(|arg| {
+            FunctionArg{ id: Tagged::new(arg.get_loc().clone(), "".to_owned()), typ: arg.clone() }
+        }).collect();
+        symbols::Function::new(Tagged::new(Location::new("", 0..1), "".to_owned()), "".to_owned(), args, *func_ptr.ret_type.clone(), true)
+    } else {
+        match obj {
+            Some(obj) => {
+                let AST::Identifier(obj_id) = obj.0 else {
+                    todo!("error");
+                };
+                let struct_name = if obj.1 { obj_id.id.clone() } else { Tagged::new(Location::new("", 0..1), obj_id.accept(&mut generator.type_generator, scope).get_name()) };
+                let strct = scope.get_struct(&struct_name);
+                strct.get_function(&Location::new("", 0..1), name.clone()).clone()
+            }
+            None => scope.get_function(&Tagged::new(Location::new("", 0..1), name.clone())).clone(),
+        }
+    };
+
+    if func.is_none() {
+        let args: Vec<TypeRef> = r#fn.args.iter().map(|t| scope.resolve_type(&t.typ, &generator.ctx)).collect();
+        let fn_type = FunctionTypeRef::get(scope.resolve_type(&r#fn.ret_type, &generator.ctx), &args, false);
+        func = Some(LLVMFunction::create(fn_type, &r#fn.name_mangeled, &generator.ctx.module));
+    }
+
+    if !is_ptr {
+        let func = func.as_ref().unwrap();
+        if !func.is_var_arg() && func.args().len() != (call.args.len() + if obj_value.is_some() { 1 } else { 0 })
+        {
+            Logger::error_msg_label(
+                format!("function `{}` expected `{}` args, but `{}` were supplied",
+                    name, func.args().len(), call.args.len() + if obj_value.is_some() { 1 } else { 0 }
+                ).as_str(),
+                ErrorLabel::from(&Location::new("", 0..1), "incorrect number of arguments supplied"),
+            );
+        }
+    }
+
+    let mut args: Vec<ValueRef> = call.args.iter_mut().map(|arg| {
+        let arg_ty = arg.accept(&mut generator.type_generator, scope);
+        let mut val = arg.accept(generator, scope).unwrap();
+        if arg.needs_load() {
+            val = generator.ctx.builder.create_load(&scope.resolve_type(&arg_ty, &generator.ctx), &val);
+        }
+
+        // TODO(S): add try to safely cast args to expected type
+
+        //if allow_implicit_cast(val.get_type(), )
+
+        val
+    })
+    .collect();
+
+    let is_memeber = obj_value.is_some();
+    if let Some(mut obj_value) = obj_value {
+        /*
+         *  NOTE(S): store `self` in temporary varialbe to deref it
+         *  NOTE(S): maybe find a more efficient way to do this?
+         *
+         */
+        let ty = &r#fn.args[0].typ;
+        if let Type::Pointer(_) = ty {
+            if !obj_value.get_type().is_pointer_ty() {
+                let alloc = generator.ctx.builder.create_alloca(&obj_value.get_type(), None);
+                generator.ctx.builder.create_store(&obj_value, &alloc);
+                obj_value = alloc;
+            }
+        }
+        args.insert(0, obj_value);
+    }
+
+    let adder = if is_memeber { 1 } else { 0 };
+    let mut iter = adder;
+    while iter < r#fn.args.len() && iter < call.args.len() {
+        let expected_type = &r#fn.args[iter].typ;
+        let typ = call.args[iter - adder].accept(&mut generator.type_generator, scope);
+        if !typ.matches(expected_type)
+        {
+            Logger::error_msg_labels(
+                format!("invalid argument type for function `{}`", name),
+                &[
+                    ErrorLabel::from(&Location::new("", 0..1), format!("provided value has type: `{}`", typ.get_full_name())),
+                    ErrorLabel::from(r#fn.args[iter].id.loc(), format!("expected type is: `{}`", expected_type.get_full_name()).as_str()),
+                ]
+            );
+        }
+        iter += 1;
+    }
+
+    if is_ptr {
+        if let Type::FuncPtr(ptr) = typ {
+            let params: Vec<TypeRef> = ptr
+                .params
+                .iter()
+                .map(|param| scope.resolve_type(param, &generator.ctx))
+                .collect();
+            let func_ty = FunctionTypeRef::get(
+                scope.resolve_type(&*ptr.ret_type, &generator.ctx),
+                &params,
+                false,
+            );
+            return generator.ctx.builder.create_ptr_call(
+                &func_ty.into(),
+                &func.unwrap().into(),
+                &args,
+            );
+        }
+    }
+    generator.ctx.builder.create_call(&func.unwrap().into(), &args)
+}
+
+
+
+
+

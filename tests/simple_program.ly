@@ -10,5 +10,7 @@ fn main() -> i32 {
         .x = 20,
         .y = 10,
     };
-    return 0;
+    let x = malloc(8);
+    x->x = 20;
+    return x->x;
 }

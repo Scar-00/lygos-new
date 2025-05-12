@@ -3,7 +3,7 @@ use lygos_token::Tagged;
 
 use crate::{types::Type, AST};
 
-#[derive(Debug, Visitable)]
+#[derive(Debug, Clone, Visitable)]
 pub struct Identifier {
     pub id: Tagged<String>,
     pub deref: bool,

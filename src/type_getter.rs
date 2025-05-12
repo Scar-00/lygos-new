@@ -1,4 +1,4 @@
-use lygos_ast::{types::{Path, Type}, *};
+use lygos_ast::{symbols::Symbol, types::{Path, Type}, *};
 use lygos_logging::{ErrorLabel, Logger};
 use lygos_token::{Location, Tagged};
 
@@ -64,8 +64,23 @@ impl ASTVisitor for TypeGenerator {
         }
     }
 
-    fn visit_callexpr(&mut self, _: &mut CallExpr, _: &mut Scope) -> Self::Output {
-        todo!()
+    fn visit_callexpr(&mut self, node: &mut CallExpr, scope: &mut Scope) -> Self::Output {
+        let fn_name = {
+            let AST::Identifier(fn_name) = &*node.caller else {
+                todo!("error");
+            };
+            fn_name.clone()
+        };
+        let ty = if scope.has_symbol(fn_name.id.inner()) {
+            scope.get_function(&fn_name.id).ret_type.clone()
+        }else {
+            node.caller.accept(self, scope)
+        };
+        if let Type::FuncPtr(ptr) = &ty {
+            *ptr.ret_type.clone()
+        }else {
+            scope.get_function(&fn_name.id).ret_type.clone()
+        }
     }
 
     fn visit_returnexpr(&mut self, _: &mut ReturnExpr, _: &mut Scope) -> Self::Output {
@@ -114,54 +129,51 @@ impl ASTVisitor for TypeGenerator {
     }
 }
 
-/*
-pub fn get_function(call: &mut CallExpr, scope: &mut Scope, ctx: &GenerationContext, mut obj: Option<(&mut AST, bool)>, obj_value: Option<ValueRef>, type_generator: &mut TypeGenerator) -> (String, Type) {
-        let AST::Identifier(caller) = &*call.caller else {
-            todo!("error");
-        };
-        let fn_name = &caller.id;
-        let fully_qualified_name = match &mut obj {
-            Some(obj) => {
-                let AST::Identifier(obj_id) = obj.0 else {
-                    todo!("error");
-                };
-                let struct_name = if obj.1 { obj_id.id.clone() } else { Tagged::new(Location::new("", 0..1), obj_id.accept(type_generator, scope).get_name()) };
-                let strct = scope.get_struct(&struct_name);
-                let r#fn = strct.get_function(&Location::new("", 0..1), caller.id.inner());
-                r#fn.name_mangeled.clone()
-            }
-            None => caller.id.inner().clone(),
-        };
-        /*
-         * FIXME(S):
-         * the mecanism for getting type of a function is flawed, breaks when calling member
-         * function of type which is located in another struct -> foo.bar.baz();
-         */
+pub fn get_function(call: &mut CallExpr, scope: &mut Scope, mut obj: &mut Option<(&mut AST, bool)>, type_generator: &mut TypeGenerator) -> (String, Type) {
+    let AST::Identifier(caller) = &*call.caller else {
+        todo!("error");
+    };
+    let fn_name = &caller.id;
+    let fully_qualified_name = match &mut obj {
+        Some(obj) => {
+            let AST::Identifier(obj_id) = obj.0 else {
+                todo!("error");
+            };
+            let struct_name = if obj.1 { obj_id.id.clone() } else { Tagged::new(Location::new("", 0..1), obj_id.accept(type_generator, scope).get_name()) };
+            let strct = scope.get_struct(&struct_name);
+            let r#fn = strct.get_function(&Location::new("", 0..1), caller.id.inner());
+            r#fn.name_mangeled.clone()
+        }
+        None => caller.id.inner().clone(),
+    };
+    /*
+     * FIXME(S):
+     * the mecanism for getting type of a function is flawed, breaks when calling member
+     * function of type which is located in another struct -> foo.bar.baz();
+     */
 
-        let ty = match obj {
-            Some(obj) => {
-                let AST::Identifier(obj_id) = obj.0 else {
-                    todo!("error");
-                };
-                let struct_name = if obj.1 { obj_id.id.clone() } else { Tagged::new(Location::new("", 0..1), obj_id.accept(type_generator, scope).get_name()) };
+    let ty = match obj {
+        Some(obj) => {
+            let AST::Identifier(obj_id) = obj.0 else {
+                todo!("error");
+            };
+            let struct_name = if obj.1 { obj_id.id.clone() } else { Tagged::new(Location::new("", 0..1), obj_id.accept(type_generator, scope).get_name()) };
 
-                let strct = scope.get_struct(&struct_name);
-                let r#fn = strct.get_function(fn_name.loc(), fn_name.inner());
-                r#fn.ret_type.clone()
-            }
-            None => {
-                if scope.has_symbol(fn_name.inner()) {
-                    if let Symbol::Function(_) = scope.resolve_symbol(&fn_name) {
-                        scope.get_function(&fn_name).ret_type.clone()
-                    }else {
-                        call.caller.accept(type_generator, scope)
-                    }
+            let strct = scope.get_struct(&struct_name);
+            let r#fn = strct.get_function(fn_name.loc(), fn_name.inner());
+            r#fn.ret_type.clone()
+        }
+        None => {
+            if scope.has_symbol(fn_name.inner()) {
+                if let Symbol::Function(_) = scope.resolve_symbol(&fn_name) {
+                    scope.get_function(&fn_name).ret_type.clone()
                 }else {
                     call.caller.accept(type_generator, scope)
                 }
+            }else {
+                call.caller.accept(type_generator, scope)
             }
-        };
-        (fully_qualified_name, ty)
-    }
-
-*/
+        }
+    };
+    (fully_qualified_name, ty)
+}

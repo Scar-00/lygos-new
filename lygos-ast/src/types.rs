@@ -102,6 +102,9 @@ impl ArraySlice {
  *
  */
 
+/*
+ *  FIXME: give every Path & FunctionPtr a unique id to compare them
+ */
 
 #[derive(Debug, Clone)]
 pub enum Type {
