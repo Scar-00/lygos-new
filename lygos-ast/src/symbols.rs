@@ -12,9 +12,9 @@ pub enum Symbol {
     Variable(Variable),
     Function(Function),
     Struct(Struct),
-    //Enum(Enum),
+    Enum(Enum),
     //Macro(Macro),
-    //TypeAlias(TypeAlias),
+    TypeAlias(TypeAlias),
     //Trait(Trait),
 }
 
@@ -24,9 +24,9 @@ impl Symbol {
             Symbol::Variable(var) => &var.loc,
             Symbol::Function(func) => func.name.loc(),
             Symbol::Struct(s) => s.name.loc(),
-            //Symbol::Enum(e) => e.name.loc(),
+            Symbol::Enum(e) => e.name.loc(),
             //Symbol::Macro(m) => m.inner.id.loc(),
-            //Symbol::TypeAlias(ty) => ty.id.loc(),
+            Symbol::TypeAlias(ty) => ty.id.loc(),
             //Symbol::Trait(t) => t.inner.id.loc(),
         }
     }
@@ -113,7 +113,7 @@ impl Struct {
         self.fields = fields;
     }
 }
-/*
+
 #[derive(Debug, Clone)]
 pub struct Enum {
     name: Tagged<String>,
@@ -126,7 +126,7 @@ impl Enum {
         Self{ name, variants, typ }
     }
 }
-
+/*
 #[derive(Debug, Clone)]
 pub struct Macro {
     inner: Pointer<crate::ast::Macro>
@@ -137,7 +137,7 @@ impl Macro {
         Self{ inner }
     }
 }
-
+*/
 #[derive(Debug, Clone)]
 pub struct TypeAlias {
     id: Tagged<String>,
@@ -149,7 +149,7 @@ impl TypeAlias {
         Self{ id, dest_type }
     }
 }
-
+/*
 #[derive(Debug, Clone)]
 pub struct Trait {
     inner: Pointer<crate::ast::Trait>

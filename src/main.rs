@@ -1,6 +1,7 @@
 mod symbol_visitor;
 mod code_gen;
 mod type_getter;
+mod locator;
 use lygos_ast::Scope;
 use symbol_visitor::SymbolCollector;
 

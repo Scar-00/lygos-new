@@ -130,17 +130,9 @@ impl Scope {
                 ErrorLabel::from(name.loc(), "unknwon type")
             );
         }
-        /*if let Symbol::Struct(strct) = self.resolve_symbol(name) {
-            return strct;
-        }else {
-            error_msg_label(
-                format!("could not resolve struct type `{}`", name.inner().as_ref()).as_str(),
-                ErrorLabel::from(&name.loc(), "unknwon type")
-            );
-        }*/
         match self.resolve_symbol(name) {
             Symbol::Struct(strct) => strct,
-            //Symbol::TypeAlias(alias) => return self.get_struct(&Tagged::new(alias.dest_type.get_loc(), alias.dest_type.get_full_name())),
+            Symbol::TypeAlias(alias) => self.get_struct(&Tagged::new(alias.dest_type.get_loc(), alias.dest_type.get_full_name())),
             _ => Logger::error_msg_label(
                 format!("could not resolve struct type `{}`", name.inner().as_ref()).as_str(),
                 ErrorLabel::from(name.loc(), "unknwon type")
@@ -244,10 +236,10 @@ impl Scope {
                         }
                         /*Symbol::Enum(e) => {
                             return self.resolve_type(&e.typ, ctx);
-                        }
+                        }*/
                         Symbol::TypeAlias(a) => {
                             return self.resolve_type(&a.dest_type, ctx);
-                        }*/
+                        }
                         _ => Logger::error_msg_label(format!("unknown type `{:#?}`", path), ErrorLabel::from(&path.loc, "unknown type")),
                     }
                 }

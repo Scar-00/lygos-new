@@ -49,8 +49,8 @@ pub enum AST {
     ReturnExpr(ReturnExpr),
     BinaryExpr(BinaryExpr),
 
-    /*IfStmt(IfStmt),
-    ForStmt(ForStmt),
+    IfStmt(IfStmt),
+    /*ForStmt(ForStmt),
     //MatchStmt(()),
     BreakExpr(BreakExpr),
     ClosureExpr(ClosureExpr),*/

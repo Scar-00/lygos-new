@@ -3,14 +3,17 @@ struct Foo {
     y: i32;
 }
 
-fn malloc(size: i32) -> *Foo;
+type Bar = Foo;
+
+fn malloc(size: i32) -> *Bar;
+
+fn foo(x: i32) -> i32 {
+    if x == 10 {
+        return 1;
+    }
+    return 0;
+}
 
 fn main() -> i32 {
-    let f = Foo {
-        .x = 20,
-        .y = 10,
-    };
-    let x = malloc(8);
-    x->x = 20;
-    return x->x;
+    return 0;
 }

@@ -34,40 +34,17 @@ impl ASTVisitor for SymbolCollector {
         });
     }
 
-    fn visit_vardecl(&mut self, _: &mut VarDecl, _: &mut Scope) -> Self::Output {
-        /*let ty = match (node.typ, node.value) {
-            (Some(ty), None) => {
-                ty
-            },
-            (None, Some(ty)) => {
-                ty
-            }
-            (Some(var_typ), Some(value_typ)) => {
-                todo!("check at given and received type match at variable delclaration");
-            }
-            (None, None) => {
-                unreachable!("variable has no type");
-            }
-        };
+    fn visit_vardecl(&mut self, _: &mut VarDecl, _: &mut Scope) -> Self::Output {}
 
-
-        let var = Variable::new(node.id.loc().clone(), ty, alloca, is_const)
-        self.current_scope.add_symbol(node.id.inner(), Symbol::Variable(Var);*/
-    }
-
-    fn visit_assignmentexpr(&mut self, _: &mut AssignmentExpr, _: &mut Scope) -> Self::Output {
-    }
+    fn visit_assignmentexpr(&mut self, _: &mut AssignmentExpr, _: &mut Scope) -> Self::Output {}
 
     fn visit_memberexpr(&mut self, _: &mut MemberExpr, _: &mut Scope) -> Self::Output {}
 
-    fn visit_callexpr(&mut self, _: &mut CallExpr, _: &mut Scope) -> Self::Output {
-    }
+    fn visit_callexpr(&mut self, _: &mut CallExpr, _: &mut Scope) -> Self::Output {}
 
-    fn visit_returnexpr(&mut self, _: &mut ReturnExpr, _: &mut Scope) -> Self::Output {
-    }
+    fn visit_returnexpr(&mut self, _: &mut ReturnExpr, _: &mut Scope) -> Self::Output {}
 
-    fn visit_binaryexpr(&mut self, _: &mut BinaryExpr, _: &mut Scope) -> Self::Output {
-    }
+    fn visit_binaryexpr(&mut self, _: &mut BinaryExpr, _: &mut Scope) -> Self::Output {}
 
     fn visit_structdef(&mut self, node: &mut StructDef, scope: &mut Scope) -> Self::Output {
         if let Some(field) = node.is_self_referential() {
@@ -88,7 +65,10 @@ impl ASTVisitor for SymbolCollector {
         }
     }
 
-    fn visit_typealias(&mut self, _: &mut TypeAlias, _: &mut Scope) -> Self::Output {}
+    fn visit_typealias(&mut self, node: &mut TypeAlias, scope: &mut Scope) -> Self::Output {
+        let symbol = symbols::TypeAlias::new(node.id.clone(), node.typ.clone());
+        scope.add_symbol(node.id.inner().clone(), Symbol::TypeAlias(symbol));
+    }
 
     fn visit_numberliteral(&mut self, _: &mut NumberLiteral, _: &mut Scope) -> Self::Output {}
 
@@ -99,4 +79,6 @@ impl ASTVisitor for SymbolCollector {
     fn visit_staticliteral(&mut self, _: &mut StaticLiteral, _: &mut Scope) -> Self::Output {}
 
     fn visit_identifier(&mut self, _: &mut Identifier, _: &mut Scope) -> Self::Output {}
+
+    fn visit_ifstmt(&mut self, _: &mut IfStmt, _: &mut Scope) -> Self::Output {}
 }

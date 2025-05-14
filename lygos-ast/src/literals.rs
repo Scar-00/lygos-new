@@ -17,7 +17,7 @@ impl Identifier {
 
 #[derive(Debug, Visitable)]
 pub struct StringLiteral {
-    value: Tagged<String>,
+    pub value: Tagged<String>,
 }
 
 impl StringLiteral {
@@ -48,9 +48,9 @@ impl NumberLiteral {
 
 #[derive(Debug, Visitable)]
 pub struct StaticLiteral {
-    id: Tagged<String>,
-    typ: Type,
-    value: Option<Box<AST>>
+    pub id: Tagged<String>,
+    pub typ: Type,
+    pub value: Option<Box<AST>>
 }
 
 impl StaticLiteral {
@@ -61,8 +61,8 @@ impl StaticLiteral {
 
 #[derive(Debug, Visitable)]
 pub struct TypeAlias {
-    id: Tagged<String>,
-    typ: Type,
+    pub id: Tagged<String>,
+    pub typ: Type,
 }
 
 impl TypeAlias {

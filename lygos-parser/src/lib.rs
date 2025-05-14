@@ -63,7 +63,7 @@ impl Parser {
             //TokenType::KwMacro => self.parse_macro(),
             //TokenType::Hash => self.parse_pound(),
             //TokenType::KwEnum => self.parse_enum(),
-            //TokenType::KwType => self.parse_type_def(),
+            TokenType::KwType => self.parse_type_def(),
             _ => self.parse_stmt(),
         }
     }
@@ -493,33 +493,32 @@ impl Parser {
         self.eat();
 
         return AST::EnumDef(EnumDef::new(id.into(), variants, ty));
-    }
+    }*/
 
     fn parse_type_def(&mut self) -> AST {
         self.eat();
 
         let id = self.eat().clone();
-        if id.typ != TokenType::Id {
-            token_expected(&id.loc, "unexpected token found", "expected identifier after keyword `type`");
-        }
+        let TokenType::Id(_) = id.typ else {
+            Logger::token_expected(&id.loc, "unexpected token found", "expected identifier after keyword `type`");
+        };
 
         if self.eat().typ != TokenType::Equals {
-            token_expected(&self.peek(-1).loc, "unexpected token found", "expected `=` after type identifier");
+            Logger::token_expected(&self.peek(-1).loc, "unexpected token found", "expected `=` after type identifier");
         }
 
         let ty = self.parse_type_spec();
 
         if self.eat().typ != TokenType::Semi {
-            token_expected(&self.peek(-1).loc, "unexpected token found", "expected `;` at the end of expression");
+            Logger::token_expected(&self.peek(-1).loc, "unexpected token found", "expected `;` at the end of expression");
         }
 
-        return AST::TypeAlias(TypeAlias::new(id.into(), ty));
-    }*/
+        AST::TypeAlias(TypeAlias::new(id.into(), ty))
+    }
 
     fn parse_stmt(&mut self) -> AST {
         match self.at().typ {
-            TokenType::KwIf => {todo!()},
-            //TokenType::KwIf => self.parse_if_stmt(),
+            TokenType::KwIf => self.parse_if_stmt(),
             //TokenType::KwFor => self.parse_for_stmt(),
             //TokenType::KwMatch => self.parse_match_stmt(),
             _ => {
@@ -532,17 +531,17 @@ impl Parser {
         }
     }
 
-    /*fn parse_if_stmt(&mut self) -> AST {
+    fn parse_if_stmt(&mut self) -> AST {
         self.eat();
         let cond = self.parse_expr();
 
         if self.eat().typ != TokenType::CurlyLeft {
-            token_expected(&self.peek(-1).loc, "unexpected token found", "expected `{` after if statement");
+            Logger::token_expected(&self.peek(-1).loc, "unexpected token found", "expected `{` after if statement");
         }
 
         let mut then_branch = Block::new();
         while self.at().typ != TokenType::CurlyRight {
-            self.current_block = containers::Pointer::from(&then_branch);
+            self.current_block = util::Pointer::from(&then_branch);
             then_branch.body.push(self.parse_stmt());
         }
         self.eat();
@@ -551,12 +550,12 @@ impl Parser {
             self.eat();
 
             if self.eat().typ != TokenType::CurlyLeft {
-                token_expected(&self.peek(-1).loc, "unexpected token found", "expected `{` after if statement");
+                Logger::token_expected(&self.peek(-1).loc, "unexpected token found", "expected `{` after if statement");
             }
 
             let mut else_branch = Block::new();
             while self.at().typ != TokenType::CurlyRight {
-                self.current_block = containers::Pointer::from(&else_branch);
+                self.current_block = util::Pointer::from(&else_branch);
                 else_branch.body.push(self.parse_stmt());
             }
             self.eat();
@@ -565,10 +564,10 @@ impl Parser {
             None
         };
 
-        return AST::IfStmt(IfStmt::new(Box::new(cond), then_branch, else_branch));
+        AST::IfStmt(IfStmt::new(Box::new(cond), then_branch, else_branch))
     }
 
-    fn parse_for_stmt(&mut self) -> AST {
+    /*fn parse_for_stmt(&mut self) -> AST {
         self.eat();
 
         let var = self.parse_expr();
