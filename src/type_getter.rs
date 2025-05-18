@@ -1,4 +1,4 @@
-use lygos_ast::{symbols::Symbol, types::{Path, Type}, *};
+use lygos_ast::{symbols::Symbol, types::{Array, Path, Pointer, Type}, *};
 use lygos_logging::{ErrorLabel, Logger};
 use lygos_token::{Location, Tagged};
 
@@ -88,6 +88,78 @@ impl ASTVisitor for TypeGenerator {
         }
     }
 
+    fn visit_membercallexpr(&mut self, node: &mut MemberCallExpr, scope: &mut Scope) -> Self::Output {
+        let obj_loc = node.obj.accept(&mut self.locator, scope);
+        let struct_name = node.obj.accept(self, scope).get_name();
+        let func_loc = node.r#fn.accept(&mut self.locator, scope);
+        let strct = scope.get_struct(&Tagged::new(obj_loc, struct_name));
+        let AST::CallExpr(call) = &*node.r#fn else {
+            todo!("error");
+        };
+        let AST::Identifier(func_id) = &*call.caller else {
+            todo!("error");
+        };
+        let func = strct.get_function(&func_loc, func_id.id.inner());
+        func.ret_type.clone()
+    }
+
+    fn visit_accessexpr(&mut self, node: &mut AccessExpr, scope: &mut Scope) -> Self::Output {
+        match node.obj.accept(self, scope) {
+            Type::Array(arr) => *arr.typ,
+            Type::Pointer(ptr) => *ptr.typ,
+            ty => ty,
+        }
+    }
+
+    fn visit_unaryexpr(&mut self,node: &mut UnaryExpr,scope: &mut Scope) -> Self::Output {
+        let ty = node.obj.accept(self, scope);
+        let loc = node.accept(&mut self.locator, scope);
+        match node.op.inner().as_str() {
+            "*" => {
+                if let Type::Pointer(ptr) = &ty {
+                    *ptr.typ.clone()
+                }else {
+                    todo!("error")
+                }
+            }
+            "&" => {
+                Type::Pointer(Pointer::new(ty.get_loc(), Box::new(ty), false, false))
+            }
+            "!" => {
+                Type::Path(Path::new(loc, "bool".to_string()))
+            }
+            _ => Logger::error_msg_label(
+                format!("unknown unary operator `{}`", node.op.inner()).as_str(),
+                ErrorLabel::from(&loc, "unknown unary operator"),
+            ),
+        }
+    }
+
+    fn visit_resolutionexpr(&mut self,node: &mut ResolutionExpr,scope: &mut Scope) -> Self::Output {
+        //also allow preceding ResolutionExprs
+        let obj_loc = node.obj.accept(&mut self.locator, scope);
+        let AST::Identifier(ident) = &*node.obj else {
+            todo!("error");
+        };
+        if scope.is_enum(&ident.id) {
+            return Type::Path(Path::new(obj_loc, ident.id.inner().clone()));
+        }
+        let member_loc = node.member.accept(&mut self.locator, scope);
+        let strct = scope.get_struct(&ident.id);
+        let AST::CallExpr(call) = &*node.member else {
+            todo!("error");
+        };
+        let AST::Identifier(member_ident) = &*call.caller else {
+            todo!("error");
+        };
+        let func = strct.get_function(&member_loc, member_ident.id.inner());
+        func.ret_type.clone()
+    }
+
+    fn visit_castexpr(&mut self, node: &mut CastExpr, _: &mut Scope) -> Self::Output {
+        node.target_type.clone()
+    }
+
     fn visit_returnexpr(&mut self, _: &mut ReturnExpr, _: &mut Scope) -> Self::Output {
         Type::Path(Path::new(Location::new("", 0..1), "void"))
     }
@@ -99,8 +171,24 @@ impl ASTVisitor for TypeGenerator {
         }
     }
 
+    fn visit_ifstmt(&mut self,node: &mut IfStmt,scope: &mut Scope) -> Self::Output {
+        Type::Path(Path::new(node.cond.accept(&mut self.locator, scope).clone(), "void"))
+    }
+
     fn visit_structdef(&mut self, node: &mut StructDef, _: &mut Scope) -> Self::Output {
         Type::Path(Path::new(node.id.loc().clone(), node.id.inner().clone()))
+    }
+
+    fn visit_enumdef(&mut self, node: &mut EnumDef, _: &mut Scope) -> Self::Output {
+        Type::Path(Path::new(node.id.loc().clone(), "void"))
+    }
+
+    fn visit_impl(&mut self, _: &mut Impl, _: &mut Scope) -> Self::Output {
+        todo!()
+    }
+
+    fn visit_trait(&mut self, _: &mut Trait, _: &mut Scope) -> Self::Output {
+        todo!()
     }
 
     fn visit_typealias(&mut self, node: &mut TypeAlias, _: &mut Scope) -> Self::Output {
@@ -125,6 +213,22 @@ impl ASTVisitor for TypeGenerator {
         Type::Path(Path::new(node.id.loc().clone(), node.id.inner().clone()))
     }
 
+    fn visit_arrayliteral(&mut self, node: &mut ArrayLiteral, scope: &mut Scope) -> Self::Output {
+        let types = node.values.iter_mut().map(|child| child.accept(self, scope)).collect::<Vec<_>>();
+        let typ = if let Some(typ) = types.first() {
+            typ.clone()
+        }else {
+            Type::Path(Path::new(node.loc.clone(), "void"))
+        };
+        types.iter().for_each(|child_type| {
+            if !child_type.matches(&typ) {
+                todo!("error");
+            }
+        });
+
+        Type::Array(Array::new(node.loc.clone(), typ, types.len()))
+    }
+
     fn visit_staticliteral(&mut self, node: &mut StaticLiteral, _: &mut Scope) -> Self::Output {
         Type::Path(Path::new(node.id.loc().clone(), "void"))
     }
@@ -132,10 +236,6 @@ impl ASTVisitor for TypeGenerator {
     fn visit_identifier(&mut self, node: &mut Identifier, scope: &mut Scope) -> Self::Output {
         let var = scope.get_variable(&node.id);
         var.typ.clone()
-    }
-
-    fn visit_ifstmt(&mut self,node: &mut IfStmt,scope: &mut Scope) -> Self::Output {
-        Type::Path(Path::new(node.cond.accept(&mut self.locator, scope).clone(), "void"))
     }
 }
 

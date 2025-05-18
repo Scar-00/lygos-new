@@ -79,6 +79,7 @@ unsafe extern "C" {
     pub fn BuilderCreatePtrCall(builder: *mut (), ty: *mut (), callee: *mut (), args: *mut *mut (), args_size: usize) -> *mut ();
     pub fn BuilderCreateCall(builder: *mut (), callee: *mut (), args: *mut *mut (), args_size: usize) -> *mut ();
     pub fn BuilderCreateGEP(builder: *mut (), base: *mut (), val: *mut (), idx_list: *mut *mut (), idx_count: usize, in_bounds: bool) -> *mut ();
+    pub fn BuilderCreateExtractValue(builder: *mut (), agg: *mut (), idx_list: *mut (), idx_count: usize) -> *mut ();
     pub fn BuilderCreateStructGEP(builder: *mut (), base: *mut (), val: *mut (), index: u32) -> *mut ();
     pub fn BuilderCreateXorVV(builder: *mut (), lhs: *mut (), rhs: *mut ()) -> *mut ();
     pub fn BuilderCreateXorVL(builder: *mut (), lhs: *mut (), rhs: u64) -> *mut ();

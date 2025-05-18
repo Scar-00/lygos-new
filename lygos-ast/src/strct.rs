@@ -2,7 +2,7 @@ use lygos_lexer::Lexer;
 use lygos_macros::Visitable;
 use lygos_token::{Tagged, Token};
 
-use crate::{types::Type, AST};
+use crate::{types::Type, Block, AST};
 
 #[derive(Debug, Clone)]
 pub struct StructField {
@@ -64,5 +64,31 @@ pub struct StructLiteral {
 impl StructLiteral {
     pub fn new(id: Tagged<String>, inits: Vec<(Option<Tagged<String>>, AST)>) -> Self {
         Self{ id, inits }
+    }
+}
+
+#[derive(Debug, Visitable)]
+pub struct Impl {
+    pub typ: Tagged<String>,
+    pub body: Block,
+    pub trat: Option<Tagged<String>>,
+}
+
+impl Impl {
+    pub fn new(typ: Tagged<String>, body: Block, trat: Option<Tagged<String>>) -> Self {
+        Self{ typ, body, trat }
+    }
+}
+
+#[derive(Debug, Visitable)]
+pub struct EnumDef {
+    pub id: Tagged<String>,
+    pub variants: Vec<String>,
+    pub typ: Type,
+}
+
+impl EnumDef {
+    pub fn new(id: Tagged<String>, variants: Vec<String>, typ: Type) -> Self {
+        Self{ id, variants, typ }
     }
 }

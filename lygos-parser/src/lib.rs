@@ -7,8 +7,8 @@ pub struct Parser {
     tokens: Vec<Token>,
     index: usize,
     //preprocessor: Preprocessor,
-    //current_impl: containers::Pointer<Impl>,
-    //current_trait: containers::Pointer<Trait>,
+    current_impl: util::Pointer<Impl>,
+    current_trait: util::Pointer<Trait>,
     current_block: util::Pointer<Block>,
 }
 
@@ -18,8 +18,8 @@ impl Parser {
             tokens,
             index: 0,
             //preprocessor: Preprocessor::new(),
-            //current_impl: containers::Pointer::new(),
-            //current_trait: containers::Pointer::new(),
+            current_impl: util::Pointer::new(),
+            current_trait: util::Pointer::new(),
             current_block: util::Pointer::new(),
         }
     }
@@ -57,12 +57,12 @@ impl Parser {
         match self.at().typ {
             TokenType::KwStruct => self.parse_struct_decl(),
             TokenType::KwFn => self.parse_func(),
-            //TokenType::KwImpl => self.parse_impl(),
-            //TokenType::KwStatic => self.parse_static(),
-            //TokenType::KwTrait => self.parse_trait(),
+            TokenType::KwImpl => self.parse_impl(),
+            TokenType::KwStatic => self.parse_static(),
+            TokenType::KwTrait => self.parse_trait(),
             //TokenType::KwMacro => self.parse_macro(),
             //TokenType::Hash => self.parse_pound(),
-            //TokenType::KwEnum => self.parse_enum(),
+            TokenType::KwEnum => self.parse_enum(),
             TokenType::KwType => self.parse_type_def(),
             _ => self.parse_stmt(),
         }
@@ -115,13 +115,13 @@ impl Parser {
     }
 
     fn parse_func_arg(&mut self) -> FunctionArg {
-        let id = self.eat().clone();
+        let mut id = self.eat().clone();
 
-        /*if id.typ == TokenType::Ampercent || id.typ == TokenType::KwMut || if let TokenType::Id(value) = &id.typ {
+        if id.typ == TokenType::Ampercent || id.typ == TokenType::KwMut || if let TokenType::Id(value) = &id.typ {
             value == "self"
         }else { false } {
             if self.current_impl.is_null() && self.current_trait.is_null() {
-                token_expected(&id.loc, "unexpected token found", "member function can only be declared in an impl or trait block");
+                Logger::token_expected(&id.loc, "unexpected token found", "member function can only be declared in an impl or trait block");
             }
 
             let typ = if id.typ == TokenType::Ampercent {
@@ -140,12 +140,15 @@ impl Parser {
                 Type::Path(Path::new(id.loc.clone(), "".to_string()))
             };
 
-            if id.value != "self" {
-                token_expected(&id.loc, "unexpected token found", "expected `self`")
+            let TokenType::Id(value) = id.typ else {
+                todo!("error");
+            };
+            if value != "self" {
+                Logger::token_expected(&id.loc, "unexpected token found", "expected `self`")
             }
 
-            return FunctionArg{ id: Tagged::new(id.loc, id.value), typ };
-        }*/
+            return FunctionArg{ id: Tagged::new(id.loc, value), typ };
+        }
 
         let TokenType::Id(value) = id.typ else {
             Logger::token_expected(&id.loc, "unexpected token found", "expected identifier in function signature");
@@ -193,17 +196,17 @@ impl Parser {
             Type::Path(Path::new(Location::new("internal", 0..1), "void".to_string()))
         };
 
-        /*let c_impl = if !self.current_impl.is_null() {
-            Some(Impl::new(self.current_impl.as_ref().typ.clone(), Block::new(), self.current_impl.as_ref().trat.clone()))
+        let c_impl = if self.current_impl.is_some() {
+            Some(Impl::new(self.current_impl.typ.clone(), Block::new(), self.current_impl.trat.clone()))
         }else {
             None
         };
 
-        let attributes = attr.map(|v| vec![v]).unwrap_or(Vec::new());*/
+        //let attributes = attr.map(|v| vec![v]).unwrap_or(Vec::new());
 
         if self.at().typ == TokenType::Semi {
             self.eat();
-            return AST::Function(Function::new(id.into(), args, Block::new(), ret_type, false, false));
+            return AST::Function(Function::new(id.into(), c_impl, args, Block::new(), ret_type, false, false));
         }
 
         if self.eat().typ != TokenType::CurlyLeft {
@@ -216,38 +219,38 @@ impl Parser {
             body.body.push(self.parse_stmt());
         }
         self.eat();
-        AST::Function(Function::new(id.into(), args, body, ret_type, true, false))
+        AST::Function(Function::new(id.into(), c_impl, args, body, ret_type, true, false))
     }
 
-    /*fn parse_impl(&mut self) -> AST {
+    fn parse_impl(&mut self) -> AST {
         self.eat();
 
         let mut trat = None;
-        if self.at().typ == TokenType::Id && self.peek(1).typ == TokenType::KwFor {
+        if matches!(self.at().typ, TokenType::Id(_)) && self.peek(1).typ == TokenType::KwFor {
             trat = Some(self.eat().clone());
             self.eat();
         }
 
         let struct_impl = self.eat().clone();
 
-        if struct_impl.typ != TokenType::Id {
-            token_expected(&struct_impl.loc, "unexpected token found", "expected identifier after keyword `impl`");
+        if !matches!(struct_impl.typ, TokenType::Id(_)) {
+            Logger::token_expected(&struct_impl.loc, "unexpected token found", "expected identifier after keyword `impl`");
         }
 
         if self.eat().typ != TokenType::CurlyLeft {
-            token_expected_help(&self.peek(-1).loc, "unexpected token found", "expected `{`", "try adding `{`");
+            Logger::token_expected_help(&self.peek(-1).loc, "unexpected token found", "expected `{`", "try adding `{`");
         }
 
         let mut r#impl = Impl::new(struct_impl.into(), Block::new(), trat.map(|v| v.into()));
-        self.current_impl = containers::Pointer::from(&r#impl);
+        self.current_impl = util::Pointer::from(&r#impl);
         while self.at().typ != TokenType::CurlyRight {
-            self.current_block = containers::Pointer::from(&r#impl.body);
-            r#impl.body.body.push(self.parse_func(None));
+            self.current_block = util::Pointer::from(&r#impl.body);
+            r#impl.body.body.push(self.parse_func());
         }
         self.eat();
 
-        self.current_impl = containers::Pointer::new();
-        return AST::Impl(r#impl);
+        self.current_impl = util::Pointer::new();
+        AST::Impl(r#impl)
     }
 
     fn parse_static(&mut self) -> AST {
@@ -255,12 +258,12 @@ impl Parser {
 
         let id = self.eat().clone();
 
-        if id.typ != TokenType::Id {
-            token_expected(&id.loc, "unexpected token found", "expected `identifier` after keyword `static`");
+        if !matches!(id.typ, TokenType::Id(_)) {
+            Logger::token_expected(&id.loc, "unexpected token found", "expected `identifier` after keyword `static`");
         }
 
         if self.eat().typ != TokenType::Colon {
-            token_expected(&self.peek(-1).loc, "type annotation missing", "expected type for static item");
+            Logger::token_expected(&self.peek(-1).loc, "type annotation missing", "expected type for static item");
         }
 
         let ty = self.parse_type_spec();
@@ -273,37 +276,37 @@ impl Parser {
         };
 
         if self.eat().typ != TokenType::Semi {
-            token_expected_help(&self.peek(-1).loc, "unexpected token found", "expected `;` at the end of expression", "try adding `;`");
+            Logger::token_expected_help(&self.peek(-1).loc, "unexpected token found", "expected `;` at the end of expression", "try adding `;`");
         }
 
-        return AST::StaticLiteral(StaticLiteral::new(id.into(), ty, value));
+        AST::StaticLiteral(StaticLiteral::new(id.into(), ty, value))
     }
 
     fn parse_trait(&mut self) -> AST {
         self.eat();
 
         let id = self.eat().clone();
-        if id.typ != TokenType::Id {
-            token_expected(&id.loc, "unexpected token found", "expected identifier after keyword `impl`");
-        }
+        let TokenType::Id(id_value) = &id.typ else {
+            Logger::token_expected(&id.loc, "unexpected token found", "expected identifier after keyword `impl`");
+        };
 
         if self.eat().typ != TokenType::CurlyLeft {
-            token_expected_help(&self.peek(-1).loc, "unexpected token found", "expected `{`", "try adding `{`");
+            Logger::token_expected_help(&self.peek(-1).loc, "unexpected token found", "expected `{`", "try adding `{`");
         }
 
-        let mut trat = Trait::new(Tagged::new(id.loc.clone(), id.value.clone()), Block::new());
-        self.current_trait = containers::Pointer::from(&trat);
+        let mut trat = Trait::new(Tagged::new(id.loc.clone(), id_value.clone()), Block::new());
+        self.current_trait = util::Pointer::from(&trat);
         while self.at().typ != TokenType::CurlyRight {
-            self.current_block = containers::Pointer::from(&trat.funcs);
-            trat.funcs.body.push(self.parse_func(None));
+            self.current_block = util::Pointer::from(&trat.funcs);
+            trat.funcs.body.push(self.parse_func());
         }
         self.eat();
 
-        self.current_trait = containers::Pointer::new();
-        return AST::Trait(trat);
+        self.current_trait = util::Pointer::new();
+        AST::Trait(trat)
     }
 
-    fn parse_macro(&mut self) -> AST {
+    /*fn parse_macro(&mut self) -> AST {
         self.eat();
 
         let id = self.eat().clone();
@@ -446,15 +449,15 @@ impl Parser {
             }
             _ => token_expected(&self.at().loc, "unexpected token found", "invalid value after `#`"),
         }
-    }
+    }*/
 
     fn parse_enum(&mut self) -> AST {
         self.eat();
 
         let id = self.eat().clone();
 
-        if id.typ != TokenType::Id {
-            token_expected(&id.loc, "unexpected token found", "expected identifier after keyword `enum`");
+        if !matches!(id.typ, TokenType::Id(_)) {
+            Logger::token_expected(&id.loc, "unexpected token found", "expected identifier after keyword `enum`");
         }
 
         let ty: Type = if self.at().typ == TokenType::Colon {
@@ -463,37 +466,37 @@ impl Parser {
             if let Type::Path(_) = &ty {
                 ty
             }else {
-                token_expected(&ty.get_loc(), "invalid enum type", format!("enums may only contain primitive types but has {}", ty.get_full_name()).as_str());
+                Logger::token_expected(&ty.get_loc(), "invalid enum type", format!("enums may only contain primitive types but has {}", ty.get_full_name()).as_str());
             }
         }else {
-            Type::Path(Path::new(Loc::new("internal".into(), 0, 1), "u32".into()))
+            Type::Path(Path::new(id.loc.clone(), "u32"))
         };
 
         if self.eat().typ != TokenType::CurlyLeft {
-            token_expected(&self.peek(-1).loc, "unexpected token found", "expected `{` after enum identifier");
+            Logger::token_expected(&self.peek(-1).loc, "unexpected token found", "expected `{` after enum identifier");
         }
 
         let mut variants = Vec::new();
 
         while self.at().typ != TokenType::CurlyRight {
-            if self.at().typ != TokenType::Id {
-                token_expected(&self.at().loc, "unexpected token found", "expected identifier in enum declaration");
-            }
-
-            variants.push(self.eat().value.clone());
+            let TokenType::Id(variant) = &self.at().typ else {
+                Logger::token_expected(&self.at().loc, "unexpected token found", "expected identifier in enum declaration");
+            };
+            variants.push(variant.clone());
+            self.eat();
 
             if self.at().typ == TokenType::CurlyRight {
                 break;
             }
 
             if self.eat().typ != TokenType::Comma {
-                token_expected(&self.peek(-1).loc, "unexpected token found", "enum variants need to be comma `,` seperated");
+                Logger::token_expected(&self.peek(-1).loc, "unexpected token found", "enum variants need to be comma `,` seperated");
             }
         }
         self.eat();
 
-        return AST::EnumDef(EnumDef::new(id.into(), variants, ty));
-    }*/
+        AST::EnumDef(EnumDef::new(id.into(), variants, ty))
+    }
 
     fn parse_type_def(&mut self) -> AST {
         self.eat();
@@ -722,8 +725,7 @@ impl Parser {
     }
 
     fn parse_assignment_expr(&mut self) -> AST {
-        //let lhs = self.parse_index_expr();
-        let lhs = self.parse_member_expr();
+        let lhs = self.parse_index_expr();
         if self.at().typ == TokenType::Equals {
             self.eat();
             let rhs = self.parse_expr();
@@ -732,7 +734,7 @@ impl Parser {
         lhs
     }
 
-    /*fn parse_index_expr(&mut self) -> AST {
+    fn parse_index_expr(&mut self) -> AST {
         let mut obj = self.parse_member_expr();
         while self.at().typ == TokenType::BraceLeft {
             self.eat();
@@ -740,10 +742,10 @@ impl Parser {
             if self.eat().typ != TokenType::BraceRight {
                 Logger::token_expected(&self.peek(-1).loc, "unexpected token found", "expected closing bracket `]`");
             }
-            obj = AST::AccessExpr(AccessExpr(Box::new(obj), Box::new(idx)));
+            obj = AST::AccessExpr(AccessExpr::new(Box::new(obj), Box::new(idx)));
         }
-        return obj;
-    }*/
+        obj
+    }
 
     fn parse_member_expr(&mut self) -> AST {
         let mut obj = self.parse_call_expr();
@@ -751,8 +753,7 @@ impl Parser {
             let deref = self.eat().typ == TokenType::Arrow;
             let member = self.parse_call_expr();
             obj = if let AST::CallExpr(_) = member {
-                todo!("");
-                //AST::MemberCallExpr(MemberCallExpr::new(Box::new(obj), Box::new(member), deref))
+                AST::MemberCallExpr(MemberCallExpr::new(Box::new(obj), Box::new(member), deref))
             }else {
                 AST::MemberExpr(MemberExpr::Member{ obj: Box::new(obj), member: Box::new(member), deref })
             };
@@ -761,8 +762,7 @@ impl Parser {
     }
 
     fn parse_call_expr(&mut self) -> AST {
-        //let mut callee = self.parse_resolution_expr();
-        let mut callee = self.parse_paran_expr();
+        let mut callee = self.parse_resolution_expr();
         /*let is_macro = if self.at().typ == TokenType::Dollar { self.eat(); true } else { false };
 
         if is_macro && self.at().typ == TokenType::ParanLeft {
@@ -839,14 +839,14 @@ impl Parser {
         callee
     }
 
-    /*fn parse_resolution_expr(&mut self) -> AST {
+    fn parse_resolution_expr(&mut self) -> AST {
         let mut obj = self.parse_unary_expr();
         while self.at().typ == TokenType::OpScope {
             self.eat();
             let member = self.parse_expr();
             obj = AST::ResolutionExpr(ResolutionExpr::new(Box::new(obj), Box::new(member)));
         }
-        return obj;
+        obj
     }
 
     fn parse_unary_expr(&mut self) -> AST {
@@ -857,51 +857,13 @@ impl Parser {
             let obj = self.parse_expr();
             return AST::UnaryExpr(UnaryExpr::new(op.into(), Box::new(obj)));
         }
-        return self.parse_initializer_expr();
+        self.parse_paran_expr()
     }
-
-    fn parse_initializer_expr(&mut self) -> AST {
-        //if self.at().typ == TokenType::Dollar {
-        //    self.eat();
-        if self.at().typ == TokenType::CurlyLeft {
-            self.eat();
-            let mut values: Vec<Initializer> = Vec::new();
-            while self.at().typ != TokenType::CurlyRight {
-                let mut name = None;
-                if self.at().typ == TokenType::Dot {
-                    self.eat();
-                    let id = self.eat().clone();
-                    if id.typ != TokenType::Id {
-                        token_expected(&id.loc, "unexpected token found", "expected `identifier` after `.` in initializer list");
-                    }
-
-                    name = Some(id.into());
-
-                    if self.eat().typ != TokenType::Equals {
-                        token_expected(&self.peek(-1).loc, "unexpected token found", "expected `=` between member and value");
-                    }
-                }
-                values.push((name, self.parse_expr()));
-
-                if self.at().typ == TokenType::CurlyRight {
-                    break;
-                }
-
-                if self.eat().typ != TokenType::Comma {
-                    token_expected(&self.peek(-1).loc, "unexpected token found", "initializer list values need to be comma `,` seperated");
-                }
-            }
-            self.eat();
-            return AST::InitializerList(InitializerListExpr::new(values));
-        }
-        //}
-        return self.parse_paran_expr();
-    }*/
 
     fn parse_paran_expr(&mut self) -> AST {
         if self.at().typ == TokenType::ParanLeft {
             self.eat();
-            /*if self.at().typ == TokenType::Colon {
+            if self.at().typ == TokenType::Colon {
                 self.eat();
                 let typ = self.parse_type_spec();
                 if self.eat().typ != TokenType::ParanRight {
@@ -909,7 +871,7 @@ impl Parser {
                 }
                 let expr = self.parse_expr();
                 return AST::CastExpr(CastExpr::new(Box::new(expr), typ));
-            }*/
+            }
             let expr = self.parse_expr();
             if self.eat().typ != TokenType::ParanRight {
                 Logger::token_expected(&self.peek(-1).loc, "unexpected token found", "expected closing paran `)`");
@@ -991,6 +953,27 @@ impl Parser {
         AST::StructLiteral(StructLiteral::new(struct_ident.into(), values))
     }
 
+    fn parse_array_literal(&mut self) -> AST {
+        let start_tok = self.eat().clone();
+        if TokenType::BraceLeft != start_tok.typ {
+            unreachable!();
+        }
+        let start = start_tok.loc;
+        let mut values: Vec<AST> = Vec::new();
+        while self.at().typ != TokenType::BraceRight {
+            values.push(self.parse_expr());
+            if self.at().typ == TokenType::BraceRight {
+                break;
+            }
+
+            if self.eat().typ != TokenType::Comma {
+                Logger::token_expected(&self.peek(-1).loc, "unexpected token found", "initializer list values need to be comma `,` seperated");
+            }
+        }
+        let end = self.eat().loc.clone();
+        AST::ArrayLiteral(ArrayLiteral::new(start + end, values))
+    }
+
     fn parse_primary_expr(&mut self) -> AST {
         let tok = self.at().clone();
         match &tok.typ {
@@ -1000,6 +983,9 @@ impl Parser {
                 }else {
                     AST::Identifier(Identifier::new(self.eat().clone().into()))
                 }
+            },
+            TokenType::BraceLeft => {
+                self.parse_array_literal()
             },
             TokenType::Integer(_) => AST::NumberLiteral(NumberLiteral::new(self.eat().clone().into(), NumberType::Int)),
             TokenType::Float(_) => AST::NumberLiteral(NumberLiteral::new(self.eat().clone().into(), NumberType::Float)),
@@ -1078,16 +1064,16 @@ impl Parser {
         }
 
         let path_loc = self.at().loc.clone();
-        let path = self.eat().typ.as_str();
-        /*if path == "Self" {
+        let mut path = self.eat().typ.as_str();
+        if path == "Self" {
             if self.current_impl.is_null() && self.current_trait.is_null() {
-                token_expected(&path_loc, "unexpected token found", "encountered type `Self` outside of `impl` or `trait` block");
+                Logger::token_expected(&path_loc, "unexpected token found", "encountered type `Self` outside of `impl` or `trait` block");
             }
 
             if !self.current_impl.is_null() {
                 path = self.current_impl.as_ref().typ.inner().into();
             }
-        }*/
+        }
         Type::Path(Path::new(path_loc, path))
     }
 }

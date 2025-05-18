@@ -13,3 +13,16 @@ impl CallExpr {
         Self{ caller, args }
     }
 }
+
+#[derive(Debug, Visitable)]
+pub struct MemberCallExpr {
+    pub obj: Box<AST>,
+    pub r#fn: Box<AST>,
+    pub deref: bool,
+}
+
+impl MemberCallExpr {
+    pub fn new(obj: Box<AST>, r#fn: Box<AST>, deref: bool) -> Self {
+        Self{ obj, r#fn, deref }
+    }
+}

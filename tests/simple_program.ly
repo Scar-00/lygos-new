@@ -3,17 +3,22 @@ struct Foo {
     y: i32;
 }
 
+/*impl Foo {
+    fn test(&self) -> i32 {
+        return self.y;
+    }
+}*/
+
 type Bar = Foo;
+
+enum FooBar {
+    Test,
+    Test1,
+}
 
 fn malloc(size: i32) -> *Bar;
 
-fn foo(x: i32) -> i32 {
-    if x == 10 {
-        return 1;
-    }
-    return 0;
-}
-
 fn main() -> i32 {
-    return 0;
+    let y = [1, 2, 3, 4, 5];
+    return y[0];
 }

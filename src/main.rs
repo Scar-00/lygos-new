@@ -8,7 +8,7 @@ use symbol_visitor::SymbolCollector;
 use lygos_lexer::Lexer;
 use lygos_parser::Parser;
 use lygos_util::cli::CliArgs;
-use lygos_llvm::{context::Context, module::Module, builder::IRBuilder};
+use lygos_llvm::{builder::IRBuilder, context::Context, module::Module};
 use lygos_util::cli::CommandExt;
 
 use std::process::Command;
@@ -17,6 +17,7 @@ const CLI: &[&str] = &["./simple", lygos_util::tests::concat!(lygos_util::tests:
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = CliArgs::deligate_parse_from(CLI);
+    //let args = CliArgs::deligate_parse();
 
     let mut lexer = Lexer::new(&args.input)?;
     let mut parser = Parser::from(lexer.get_tokens());
@@ -30,9 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tt = Context::get_default_target_triple();
     let target = Context::lookup_target(&tt);
 
-    let cpu = "generic";
-    let features = "";
-    let target_machine = Context::create_target_machine(target, tt.as_str(), cpu, features);
+    let target_machine = Context::create_target_machine(target, tt.as_str(), "generic", "");
 
     let ctx = Context::new();
     let mut m = Module::new(args.input.display().to_string(), &ctx);
@@ -50,8 +49,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "fail")));
     }
     let exe_path = args.input.with_extension("");
-    let mut cmd = Command::new("clang");
-    let cmd = cmd.arg("-o").arg(exe_path).arg(obj_path).arg("-lc");
+    let mut cmd = Command::from_array(["clang", "-o", &exe_path.display().to_string(), &obj_path.display().to_string(), "-lc"]);
     println!("{}", cmd.display());
+    cmd.output()?;
     Ok(())
 }

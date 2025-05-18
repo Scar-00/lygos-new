@@ -208,6 +208,16 @@ extern "C" {
         return builder->CreateGEP(base, val, IdxList, "", in_bounds);
     }
 
+    llvm::Value *BuilderCreateExtractValue(llvm::IRBuilder<> *builder, llvm::Value *agg, unsigned int *idx_list, size_t idx_count) {
+        std::vector<unsigned int> IdxList;
+        for(size_t i = 0; i < idx_count; i++) {
+            IdxList.push_back(idx_list[i]);
+        }
+        //llvm::Intrinsic::expect
+        //builder->CreateIntrinsic()
+        return builder->CreateExtractValue(agg, IdxList);
+    }
+
     llvm::Value *BuilderCreateStructGEP(llvm::IRBuilder<> *builder, llvm::Type *base, llvm::Value *val, unsigned int index) {
         return builder->CreateStructGEP(base, val, index);
     }

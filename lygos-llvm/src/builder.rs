@@ -64,6 +64,10 @@ impl<'a> IRBuilder<'a> {
         ValueRef::new(unsafe{ ffi::BuilderCreateGEP(self.ptr, base.0, val.0, idx_list.as_mut_ptr(), idx_list.len(), in_bounds) })
     }
 
+    pub fn create_extract_value(&self, val: &ValueRef, idx: &[u32]) -> ValueRef {
+        ValueRef(unsafe{ ffi::BuilderCreateExtractValue(self.ptr, val.0, idx.as_ptr().cast_mut().cast(), idx.len()) })
+    }
+
     pub fn create_struct_gep(&self, base: &TypeRef, val: &ValueRef, index: u32) -> ValueRef {
         ValueRef::new(unsafe{ ffi::BuilderCreateStructGEP(self.ptr, base.0, val.0, index) })
     }

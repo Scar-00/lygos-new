@@ -116,7 +116,7 @@ impl Struct {
 
 #[derive(Debug, Clone)]
 pub struct Enum {
-    name: Tagged<String>,
+    pub name: Tagged<String>,
     pub variants: Vec<String>,
     pub typ: Type,
 }

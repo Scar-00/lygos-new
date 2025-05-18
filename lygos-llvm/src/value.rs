@@ -1,5 +1,7 @@
 use crate::{context::Context, ffi::{self, to_cstr}, module::Module, types::{FunctionTypeRef, TypeRef}};
 
+pub use ffi::CastOps;
+
 #[derive(Debug, Clone, Copy)]
 pub struct ValueRef(pub(crate) *mut ());
 

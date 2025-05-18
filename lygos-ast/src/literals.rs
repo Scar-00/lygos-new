@@ -1,5 +1,5 @@
 use lygos_macros::Visitable;
-use lygos_token::Tagged;
+use lygos_token::{Location, Tagged};
 
 use crate::{types::Type, AST};
 
@@ -68,5 +68,17 @@ pub struct TypeAlias {
 impl TypeAlias {
     pub fn new(id: Tagged<String>, typ: Type) -> Self {
         Self{ id, typ }
+    }
+}
+
+#[derive(Debug, Visitable)]
+pub struct ArrayLiteral {
+    pub loc: Location,
+    pub values: Vec<AST>,
+}
+
+impl ArrayLiteral {
+    pub fn new(loc: Location, values: Vec<AST>) -> Self {
+        Self{ loc, values }
     }
 }

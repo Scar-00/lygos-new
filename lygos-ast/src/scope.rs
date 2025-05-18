@@ -1,6 +1,6 @@
 use lygos_llvm::types::{ArrayTypeRef, DoubleTypeRef, FloatTypeRef, FunctionTypeRef, StructTypeRef};
 use lygos_util::Pointer as CPointer;
-use crate::symbols::{self, Function, Struct, Symbol, Variable};
+use crate::symbols::{self, Enum, Function, Struct, Symbol, Variable};
 use crate::types::*;
 use lygos_token::Tagged;
 use lygos_logging::{Logger, ErrorLabel};
@@ -174,19 +174,19 @@ impl Scope {
         }
     }
 
-    /*pub fn get_enum<S: AsRef<str>>(&self, name: &Tagged<S>) -> &mut symbol::Enum {
+    pub fn get_enum<S: AsRef<str>>(&self, name: &Tagged<S>) -> &mut Enum {
         if !self.has_symbol(name.inner()) {
-            error_msg_label(
+            Logger::error_msg_label(
                 format!("could not resolve enum `{}`", name.inner().as_ref()).as_str(),
-                ErrorLabel::from(&name.loc(), "unknwon enum")
+                ErrorLabel::from(name.loc(), "unknwon enum")
             );
         }
         if let Symbol::Enum(e) = self.resolve_symbol(name) {
-            return e;
+            e
         }else {
-            error_msg_label(
+            Logger::error_msg_label(
                 format!("could not resolve enum `{}`", name.inner().as_ref()).as_str(),
-                ErrorLabel::from(&name.loc(), "unknwon enum")
+                ErrorLabel::from(name.loc(), "unknwon enum")
             );
         }
     }
@@ -198,8 +198,8 @@ impl Scope {
         if let Symbol::Enum(_) = self.resolve_symbol(name) {
             return true;
         }
-        return false;
-    }*/
+        false
+    }
 
     pub fn is_struct<S: AsRef<str>>(&self, name: &Tagged<S>) -> bool {
         if !self.has_symbol(name.inner()) {
@@ -234,9 +234,9 @@ impl Scope {
                                 return ty;
                             }
                         }
-                        /*Symbol::Enum(e) => {
+                        Symbol::Enum(e) => {
                             return self.resolve_type(&e.typ, ctx);
-                        }*/
+                        }
                         Symbol::TypeAlias(a) => {
                             return self.resolve_type(&a.dest_type, ctx);
                         }
