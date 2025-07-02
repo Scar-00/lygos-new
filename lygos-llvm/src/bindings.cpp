@@ -164,8 +164,8 @@ extern "C" {
         builder->restoreIP(*ip);
     }
 
-    llvm::Value *BuilderCreateLoad(llvm::IRBuilder<> *builder, llvm::Type *ty, llvm::Value *value) {
-        return builder->CreateLoad(ty, value);
+    llvm::Value *BuilderCreateLoad(llvm::IRBuilder<> *builder, llvm::Type *ty, llvm::Value *value, const char *debug_name) {
+        return builder->CreateLoad(ty, value, debug_name);
     }
 
     llvm::Value *BuilderCreateStore(llvm::IRBuilder<> *builder, llvm::Value *value, llvm::Value *ptr) {
@@ -287,14 +287,12 @@ extern "C" {
     }
 
     llvm::Value *BuilderCreateICmpSGE(llvm::IRBuilder<> *builder, llvm::Value *lhs, llvm::Value *rhs) {
-        return builder->CreateICmpSGT(lhs, rhs);
+        return builder->CreateICmpSGE(lhs, rhs);
     }
 
     llvm::Value *BuilderCreateGlobalStringPointer(llvm::IRBuilder<> *builder, const char *string) {
         return builder->CreateGlobalStringPtr(string);
     }
-
-
 
     llvm::Type *GetIntType(llvm::LLVMContext *ctx, size_t width) {
         return llvm::Type::getIntNTy(*ctx, width);

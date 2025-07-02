@@ -2,6 +2,7 @@ mod symbol_visitor;
 mod code_gen;
 mod type_getter;
 mod locator;
+mod preprocessor;
 use lygos_ast::Scope;
 use symbol_visitor::SymbolCollector;
 
@@ -14,6 +15,23 @@ use lygos_util::cli::CommandExt;
 use std::process::Command;
 
 const CLI: &[&str] = &["./simple", lygos_util::tests::concat!(lygos_util::tests::TEST_DIR, "/simple_program.ly")];
+
+/*
+ *  TODO(K): fix references in the sense, that if not necessary they shouldn't be derefed and
+ *  just be treated as 'pointers'
+ *
+ *  # Example
+ *  fn bar(x: &Foo) { ... }
+ *
+ *  fn foo(x: &Foo) {
+ *      bar(x);
+ *  }
+ *      ^ this should compile!
+ *
+ *  currently this produces a error in the following manor:
+ *  ERROR: expected type is `&Foo`, provided type is `Foo`
+ */
+
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = CliArgs::deligate_parse_from(CLI);

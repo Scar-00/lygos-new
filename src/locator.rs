@@ -54,7 +54,7 @@ impl ASTVisitor for Locator {
     }
 
     fn visit_castexpr(&mut self, node: &mut CastExpr,scope: &mut Scope) -> Self::Output {
-        node.accept(self, scope)
+        node.obj.accept(self, scope)
     }
 
     fn visit_returnexpr(&mut self, node: &mut ReturnExpr, _: &mut Scope) -> Self::Output {
@@ -67,6 +67,14 @@ impl ASTVisitor for Locator {
 
     fn visit_ifstmt(&mut self, node: &mut IfStmt, scope: &mut Scope) -> Self::Output {
         node.cond.accept(self, scope)
+    }
+
+    fn visit_forstmt(&mut self, _: &mut ForStmt, _: &mut Scope) -> Self::Output {
+        todo!()
+    }
+
+    fn visit_breakexpr(&mut self, node: &mut BreakExpr, _: &mut Scope) -> Self::Output {
+        node.loc.clone()
     }
 
     fn visit_structdef(&mut self, node: &mut StructDef, _: &mut Scope) -> Self::Output {
@@ -83,6 +91,14 @@ impl ASTVisitor for Locator {
 
     fn visit_trait(&mut self, _: &mut Trait, _: &mut Scope) -> Self::Output {
         todo!()
+    }
+
+    fn visit_macro(&mut self, node: &mut Macro, _: &mut Scope) -> Self::Output {
+        node.id.loc().clone()
+    }
+
+    fn visit_macrocall(&mut self, node: &mut MacroCall, _: &mut Scope) -> Self::Output {
+        node.id.loc().clone()
     }
 
     fn visit_typealias(&mut self, node: &mut TypeAlias, _: &mut Scope) -> Self::Output {
@@ -111,5 +127,9 @@ impl ASTVisitor for Locator {
 
     fn visit_identifier(&mut self, node: &mut Identifier, _: &mut Scope) -> Self::Output {
         node.id.loc().clone()
+    }
+
+    fn visit_blockexpr(&mut self,node: &mut BlockExpr,scope: &mut Scope) -> Self::Output {
+        todo!()
     }
 }

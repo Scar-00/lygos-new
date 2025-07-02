@@ -19,8 +19,11 @@ impl ASTVisitor for SymbolCollector {
         });
     }
 
-    fn visit_function(&mut self,node: &mut Function, scope: &mut Scope) -> Self::Output {
+    fn visit_function(&mut self, node: &mut Function, scope: &mut Scope) -> Self::Output {
         node.body.scope.set_parent(scope);
+        /*if let Some(obj) = &node.obj {
+            node.name_mangeled = obj.typ.inner().to_owned() + "_" + node.id.inner();
+        }*/
         let func_sym = FunctionSymbol::new(
             node.id.clone(),
             node.name_mangeled.clone(),
@@ -57,6 +60,10 @@ impl ASTVisitor for SymbolCollector {
     fn visit_binaryexpr(&mut self, _: &mut BinaryExpr, _: &mut Scope) -> Self::Output {}
 
     fn visit_ifstmt(&mut self, _: &mut IfStmt, _: &mut Scope) -> Self::Output {}
+
+    fn visit_forstmt(&mut self, _: &mut ForStmt, _: &mut Scope) -> Self::Output {}
+
+    fn visit_breakexpr(&mut self, _: &mut BreakExpr, _: &mut Scope) -> Self::Output {}
 
     fn visit_structdef(&mut self, node: &mut StructDef, scope: &mut Scope) -> Self::Output {
         if let Some(field) = node.is_self_referential() {
@@ -95,7 +102,8 @@ impl ASTVisitor for SymbolCollector {
                 let mut func_sym: symbols::Function = func.into();
                 func_sym.name_mangeled = strct.name.inner().to_string() + "_" + func_sym.name.inner();
                 strct.register_function(func_sym);
-                child.accept(self, scope);
+                //child.accept(self, scope);
+                func.body.scope.set_parent(scope);
             }
         });
     }
@@ -103,6 +111,10 @@ impl ASTVisitor for SymbolCollector {
     fn visit_trait(&mut self, _: &mut Trait, _: &mut Scope) -> Self::Output {
         todo!()
     }
+
+    fn visit_macro(&mut self, _: &mut Macro, _: &mut Scope) -> Self::Output {}
+
+    fn visit_macrocall(&mut self, _: &mut MacroCall, _: &mut Scope) -> Self::Output {}
 
     fn visit_typealias(&mut self, node: &mut TypeAlias, scope: &mut Scope) -> Self::Output {
         let symbol = symbols::TypeAlias::new(node.id.clone(), node.typ.clone());
@@ -120,4 +132,8 @@ impl ASTVisitor for SymbolCollector {
     fn visit_staticliteral(&mut self, _: &mut StaticLiteral, _: &mut Scope) -> Self::Output {}
 
     fn visit_identifier(&mut self, _: &mut Identifier, _: &mut Scope) -> Self::Output {}
+
+    fn visit_blockexpr(&mut self,node: &mut BlockExpr,scope: &mut Scope) -> Self::Output {
+        todo!()
+    }
 }

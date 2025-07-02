@@ -9,6 +9,7 @@ fn main() {
     cc::Build::new()
         .file("src/bindings.cpp")
         .shared_flag(true)
+        .std("c++20")
         .out_dir("src")
         .compile("bindings");
 }

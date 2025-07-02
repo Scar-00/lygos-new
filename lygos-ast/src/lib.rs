@@ -28,6 +28,8 @@ pub mod access;
 pub use access::*;
 pub mod r#trait;
 pub use r#trait::*;
+pub mod r#macro;
+pub use r#macro::*;
 
 use lygos_macros::{Visitor, VisitorImpl};
 
@@ -52,17 +54,18 @@ pub enum AST {
     BinaryExpr(BinaryExpr),
 
     IfStmt(IfStmt),
-    /*ForStmt(ForStmt),
+    ForStmt(ForStmt),
     //MatchStmt(()),
     BreakExpr(BreakExpr),
-    ClosureExpr(ClosureExpr),*/
+    //ClosureExpr(ClosureExpr),
+    BlockExpr(BlockExpr),
 
     StructDef(StructDef),
     EnumDef(EnumDef),
     Impl(Impl),
     Trait(Trait),
-    /*Macro(Macro),
-    MacroCall(MacroCall),*/
+    Macro(Macro),
+    MacroCall(MacroCall),
     TypeAlias(TypeAlias),
     NumberLiteral(NumberLiteral),
     StringLiteral(StringLiteral),
@@ -75,11 +78,11 @@ pub enum AST {
 impl AST {
     pub fn needs_load(&self) -> bool {
         match self {
-            AST::Identifier(_) | AST::StructLiteral(_) | AST::AccessExpr(_) => true,
+            AST::Identifier(_) | AST::StructLiteral(_) | AST::ArrayLiteral(_) | AST::AccessExpr(_) => true,
             AST::MemberExpr(MemberExpr::Member { member, .. }) => {
                 !matches!(&**member, AST::CallExpr(_))
             }
-            AST::UnaryExpr(expr) => expr.op.inner() != "&",
+            AST::UnaryExpr(expr) => expr.op.inner() == "!",
             _ => false,
         }
     }

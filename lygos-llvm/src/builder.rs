@@ -32,8 +32,9 @@ impl<'a> IRBuilder<'a> {
         ValueRef::new(unsafe{ ffi::BuilderCreateStore(self.ptr, value.0, ptr.0) })
     }
 
-    pub fn create_load(&self, ty: &TypeRef, value: &ValueRef) -> ValueRef {
-        ValueRef::new(unsafe{ ffi::BuilderCreateLoad(self.ptr, ty.0, value.0) })
+    pub fn create_load(&self, ty: &TypeRef, value: &ValueRef, name: Option<impl AsRef<str>>) -> ValueRef {
+        let name = name.map(|name| to_cstr!(name.as_ref())).unwrap_or(std::ptr::null_mut());
+        ValueRef::new(unsafe{ ffi::BuilderCreateLoad(self.ptr, ty.0, value.0, name) })
     }
 
     pub fn create_alloca(&self, ty: &TypeRef, array_size: Option<&ValueRef>) -> ValueRef {

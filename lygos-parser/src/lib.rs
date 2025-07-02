@@ -522,7 +522,7 @@ impl Parser {
     fn parse_stmt(&mut self) -> AST {
         match self.at().typ {
             TokenType::KwIf => self.parse_if_stmt(),
-            //TokenType::KwFor => self.parse_for_stmt(),
+            TokenType::KwFor => self.parse_for_stmt(),
             //TokenType::KwMatch => self.parse_match_stmt(),
             _ => {
                 let node = self.parse_expr();
@@ -570,29 +570,29 @@ impl Parser {
         AST::IfStmt(IfStmt::new(Box::new(cond), then_branch, else_branch))
     }
 
-    /*fn parse_for_stmt(&mut self) -> AST {
+    fn parse_for_stmt(&mut self) -> AST {
         self.eat();
 
         let var = self.parse_expr();
 
         if let AST::VarDecl(_) = var {} else {
-            token_expected(&self.peek(-1).loc, "unexpected token found", "expected expression after keyword `for`");
+            Logger::token_expected(&self.peek(-1).loc, "unexpected token found", "expected expression after keyword `for`");
         }
 
         if self.eat().typ != TokenType::KwIn {
-            token_expected(&self.peek(-1).loc, "unexpected token found", "expected `in` after expression");
+            Logger::token_expected(&self.peek(-1).loc, "unexpected token found", "expected `in` after expression");
         }
 
         let cond = self.parse_expr();
 
 
         if self.eat().typ != TokenType::CurlyLeft {
-            token_expected(&self.peek(-1).loc, "unexpected token found", "expected `{` after for statement");
+            Logger::token_expected(&self.peek(-1).loc, "unexpected token found", "expected `{` after for statement");
         }
 
         let mut block = Block::new();
         while self.at().typ != TokenType::CurlyRight {
-            self.current_block = containers::Pointer::from(&block);
+            self.current_block = util::Pointer::from(&block);
             block.body.push(self.parse_stmt());
         }
         self.eat();
@@ -600,7 +600,7 @@ impl Parser {
         return AST::ForStmt(ForStmt::new(Box::new(cond), Box::new(var), block));
     }
 
-    fn parse_match_stmt(&mut self) -> AST {
+    /*fn parse_match_stmt(&mut self) -> AST {
         todo!();
     }
 
@@ -629,6 +629,9 @@ impl Parser {
         match self.at().typ {
             TokenType::KwLet => self.parse_var_decl(),
             TokenType::KwRet => self.parse_ret_expr(),
+            TokenType::Id(_) if self.peek(1).typ == TokenType::Dollar && self.peek(2).typ == TokenType::CurlyLeft => {
+                self.parse_struct_literal()
+            },
             _ => self.parse_cond_expr(),
         }
     }
@@ -763,7 +766,7 @@ impl Parser {
 
     fn parse_call_expr(&mut self) -> AST {
         let mut callee = self.parse_resolution_expr();
-        /*let is_macro = if self.at().typ == TokenType::Dollar { self.eat(); true } else { false };
+        let is_macro = if self.at().typ == TokenType::Dollar { self.eat(); true } else { false };
 
         if is_macro && self.at().typ == TokenType::ParanLeft {
             let start_index = self.index - 2;
@@ -792,12 +795,15 @@ impl Parser {
                 }
 
                 if self.eat().typ != TokenType::Comma {
-                    token_expected(&self.peek(-1).loc, "unexpected token found", "macro call parameters need to be comma seperated");
+                    Logger::token_expected(&self.peek(-1).loc, "unexpected token found", "macro call parameters need to be comma seperated");
                 }
             }
             self.eat();
-            let mut call = MacroCall::new(Tagged::new(callee.loc().clone(), callee.get_value()), args);
-            if let Some(stream) = self.preprocessor.expand_macro(&mut call) {
+            let AST::Identifier(id) = &callee else {
+                todo!();
+            };
+            let call = MacroCall::new(id.id.clone(), args);
+            /*if let Some(stream) = self.preprocessor.expand_macro(&mut call) {
                 let len = self.index - start_index;
                 self.index = start_index;
                 for _ in 0..len + 1 {
@@ -815,10 +821,10 @@ impl Parser {
                  *
                  */
                 self.tokens.insert(self.index, Token::new(";", TokenType::Semi, Loc::new("inte".into(), 0, 1)));
-            }else {
+            }else {*/
                 callee = AST::MacroCall(call);
-            }
-        }*/
+            //}
+        }
 
         if self.at().typ == TokenType::ParanLeft {
             self.eat();
@@ -920,6 +926,7 @@ impl Parser {
         if !matches!(struct_ident.typ, TokenType::Id(_)) {
             unreachable!();
         };
+        self.eat();
         if TokenType::CurlyLeft != self.eat().typ {
             unreachable!();
         }
@@ -930,7 +937,7 @@ impl Parser {
                 self.eat();
                 let id = self.eat().clone();
                 let TokenType::Id(_) = id.typ else {
-                    Logger::token_expected(&id.loc, "unexpected token found", "expected `identifier` after `.` in initializer list");
+                    Logger::token_expected(&id.loc, "unexpected token found", "expected `identifier` after `.` in struct literal list");
                 };
 
                 name = Some(id.into());
@@ -946,7 +953,7 @@ impl Parser {
             }
 
             if self.eat().typ != TokenType::Comma {
-                Logger::token_expected(&self.peek(-1).loc, "unexpected token found", "initializer list values need to be comma `,` seperated");
+                Logger::token_expected(&self.peek(-1).loc, "unexpected token found", "struct literal list values need to be comma `,` seperated");
             }
         }
         self.eat();
@@ -978,11 +985,11 @@ impl Parser {
         let tok = self.at().clone();
         match &tok.typ {
             TokenType::Id(_) => {
-                if self.peek(1).typ == TokenType::CurlyLeft {
-                    self.parse_struct_literal()
-                }else {
+                //if self.peek(1).typ == TokenType::Dollar && self.peek(2).typ == TokenType::CurlyLeft {
+                //    self.parse_struct_literal()
+                //}else {
                     AST::Identifier(Identifier::new(self.eat().clone().into()))
-                }
+                //}
             },
             TokenType::BraceLeft => {
                 self.parse_array_literal()
@@ -991,7 +998,7 @@ impl Parser {
             TokenType::Float(_) => AST::NumberLiteral(NumberLiteral::new(self.eat().clone().into(), NumberType::Float)),
             TokenType::Char(_) => AST::NumberLiteral(NumberLiteral::new(self.eat().clone().into(), NumberType::Char)),
             TokenType::String(_) => AST::StringLiteral(StringLiteral::new(self.eat().clone().into())),
-            //TokenType::KwBreak => AST::BreakExpr(BreakExpr::new(self.eat().loc.clone())),
+            TokenType::KwBreak => AST::BreakExpr(BreakExpr::new(self.eat().loc.clone())),
             //TokenType::KwContinue => todo!("implement parsing of `KwContinue`"),
             //TokenType::Pipe => self.parse_closure(),
             _ => {

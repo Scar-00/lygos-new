@@ -175,6 +175,14 @@ impl ASTVisitor for TypeGenerator {
         Type::Path(Path::new(node.cond.accept(&mut self.locator, scope).clone(), "void"))
     }
 
+    fn visit_forstmt(&mut self, node: &mut ForStmt, scope: &mut Scope) -> Self::Output {
+        Type::Path(Path::new(node.cond.accept(&mut self.locator, scope).clone(), "void"))
+    }
+
+    fn visit_breakexpr(&mut self, node: &mut BreakExpr, _: &mut Scope) -> Self::Output {
+        Type::Path(Path::new(node.loc.clone(), "void"))
+    }
+
     fn visit_structdef(&mut self, node: &mut StructDef, _: &mut Scope) -> Self::Output {
         Type::Path(Path::new(node.id.loc().clone(), node.id.inner().clone()))
     }
@@ -189,6 +197,18 @@ impl ASTVisitor for TypeGenerator {
 
     fn visit_trait(&mut self, _: &mut Trait, _: &mut Scope) -> Self::Output {
         todo!()
+    }
+
+    fn visit_macro(&mut self, _: &mut Macro, _: &mut Scope) -> Self::Output {
+        todo!()
+    }
+
+    fn visit_macrocall(&mut self, node: &mut MacroCall, _: &mut Scope) -> Self::Output {
+        match node.id.inner().as_str() {
+            "format_args" => Type::Path(Path::new(node.id.loc().clone(), "Arguments")),
+            "sizeof" => Type::Path(Path::new(node.id.loc().clone(), "u64")),
+            _ => unreachable!(),
+        }
     }
 
     fn visit_typealias(&mut self, node: &mut TypeAlias, _: &mut Scope) -> Self::Output {
@@ -230,12 +250,23 @@ impl ASTVisitor for TypeGenerator {
     }
 
     fn visit_staticliteral(&mut self, node: &mut StaticLiteral, _: &mut Scope) -> Self::Output {
-        Type::Path(Path::new(node.id.loc().clone(), "void"))
+        node.typ.clone()
     }
 
     fn visit_identifier(&mut self, node: &mut Identifier, scope: &mut Scope) -> Self::Output {
         let var = scope.get_variable(&node.id);
+        /*if node.deref {
+            if let Type::Pointer(ptr) = &var.typ {
+                if ptr.is_ref {
+                    return *ptr.typ.clone();
+                }
+            }
+        }*/
         var.typ.clone()
+    }
+
+    fn visit_blockexpr(&mut self, _: &mut BlockExpr, _: &mut Scope) -> Self::Output {
+        todo!()
     }
 }
 

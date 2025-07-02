@@ -55,7 +55,7 @@ impl Add for Location {
 pub enum TokenType {
     String(String),
     Integer(String), //any integer
-    Float(String),   //every float is trated as double pres
+    Float(String),   //every float is treated as double pres
     Id(String),
     Char(String),
 

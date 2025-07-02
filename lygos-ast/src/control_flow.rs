@@ -27,3 +27,38 @@ impl IfStmt {
         Self{ cond, then_body, else_body }
     }
 }
+
+#[derive(Debug, Visitable)]
+pub struct ForStmt {
+    pub cond: Box<AST>,
+    pub var: Box<AST>,
+    pub body: Block,
+}
+
+impl ForStmt {
+    pub fn new(cond: Box<AST>, var: Box<AST>, body: Block) -> Self {
+        Self{ cond, var, body }
+    }
+}
+
+#[derive(Debug, Visitable)]
+pub struct BreakExpr {
+    pub loc: Location,
+}
+
+impl BreakExpr {
+    pub fn new(loc: Location) -> Self {
+        Self{ loc }
+    }
+}
+
+#[derive(Debug, Visitable)]
+pub struct BlockExpr {
+    body: Block,
+}
+
+impl BlockExpr {
+    pub fn new(body: Block) -> Self {
+        Self{ body }
+    }
+}

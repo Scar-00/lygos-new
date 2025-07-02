@@ -72,7 +72,7 @@ unsafe extern "C" {
     pub fn BuilderRestoreInsertPoint(builder: *mut (), ip: *mut ());
 
     pub fn BuilderCreateStore(builder: *mut (), value: *mut (), ptr: *mut ()) -> *mut ();
-    pub fn BuilderCreateLoad(builder: *mut (), ty: *mut (), value: *mut ()) -> *mut ();
+    pub fn BuilderCreateLoad(builder: *mut (), ty: *mut (), value: *mut (), name: CStr) -> *mut ();
     pub fn BuilderCreateAlloca(builder: *mut (), ty: *mut (), array_size: *mut ()) -> *mut ();
     pub fn BuilderCreateRet(builder: *mut (), value: *mut ()) -> *mut ();
     pub fn BuilderCreateRetVoid(builder: *mut ()) -> *mut ();
