@@ -1,2 +1,5 @@
-/target
-*.o
+*
+!*.toml
+!*.lock
+!*.rs
+!src/
