@@ -597,7 +597,7 @@ impl Parser {
         }
         self.eat();
 
-        return AST::ForStmt(ForStmt::new(Box::new(cond), Box::new(var), block));
+        AST::ForStmt(ForStmt::new(Box::new(cond), Box::new(var), block))
     }
 
     /*fn parse_match_stmt(&mut self) -> AST {
@@ -769,7 +769,7 @@ impl Parser {
         let is_macro = if self.at().typ == TokenType::Dollar { self.eat(); true } else { false };
 
         if is_macro && self.at().typ == TokenType::ParanLeft {
-            let start_index = self.index - 2;
+            //let start_index = self.index - 2;
             self.eat();
             let mut args = Vec::new();
             while self.at().typ != TokenType::ParanRight {

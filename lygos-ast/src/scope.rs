@@ -249,7 +249,7 @@ impl Scope {
                 TypeRef::get_ptr(self.resolve_type(&ptr.typ, ctx), 0)
             }
             Type::Array(arr) => {
-                ArrayTypeRef::get(&self.resolve_type(&arr.typ, ctx), arr.elems).into()
+                ArrayTypeRef::get(self.resolve_type(&arr.typ, ctx), arr.elems).into()
             }
             Type::Slice(slice) => {
                 StructTypeRef::get(ctx.ctx,

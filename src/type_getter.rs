@@ -225,8 +225,8 @@ impl ASTVisitor for TypeGenerator {
         }
     }
 
-    fn visit_stringliteral(&mut self, _: &mut StringLiteral, _: &mut Scope) -> Self::Output {
-        todo!()
+    fn visit_stringliteral(&mut self, string: &mut StringLiteral, _: &mut Scope) -> Self::Output {
+        Type::Path(Path::new(string.value.loc().clone(), "str"))
     }
 
     fn visit_structliteral(&mut self, node: &mut StructLiteral, _: &mut Scope) -> Self::Output {
@@ -272,14 +272,25 @@ impl ASTVisitor for TypeGenerator {
 
 pub fn get_function(call: &mut CallExpr, scope: &mut Scope, mut obj: &mut Option<(&mut AST, bool)>, type_generator: &mut TypeGenerator) -> (Tagged<String>, String, Type) {
     let caller_loc = call.caller.accept(&mut type_generator.locator, scope);
-    let AST::Identifier(caller) = &*call.caller else {
-        todo!("error");
+    /*let AST::Identifier(caller) = &*call.caller else {
+        todo!("error: {:?}", obj);
+    };*/
+    let caller = match &*call.caller {
+        AST::Identifier(caller) => caller,
+        AST::MemberExpr(MemberExpr::Member { member, .. }) => {
+            let AST::Identifier(id) = &**member else {
+                todo!("error");
+            };
+            id
+        }
+        _ => todo!("error"),
     };
     let fn_name = caller.id.clone();
     let fully_qualified_name = match &mut obj {
         Some(obj) => {
             let obj_loc = obj.0.accept(&mut type_generator.locator, scope);
             let AST::Identifier(obj_id) = obj.0 else {
+                //  NOTE(K): this might also be a literal of any kind
                 todo!("error");
             };
             let struct_name = if obj.1 { obj_id.id.clone() } else { Tagged::new(obj_loc, obj_id.accept(type_generator, scope).get_name()) };

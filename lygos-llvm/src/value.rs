@@ -1,3 +1,5 @@
+use std::usize;
+
 use crate::{context::Context, ffi::{self, to_cstr}, module::Module, types::{FunctionTypeRef, TypeRef}};
 
 pub use ffi::CastOps;

@@ -53,6 +53,10 @@ impl Pointer {
     pub fn set_type(&mut self, typ: Type) {
         *self.typ = typ;
     }
+
+    pub fn inner(&self) -> Type {
+        *self.typ.clone()
+    }
 }
 
 #[derive(Debug, Clone)]

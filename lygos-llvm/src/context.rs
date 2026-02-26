@@ -27,8 +27,8 @@ impl Context {
         unsafe { ffi::GetTargetTriiple() }.into()
     }
 
-    pub fn lookup_target(tt: &str) -> TargetRef {
-        let str = CString::new(tt).unwrap();
+    pub fn lookup_target(tt: impl AsRef<str>) -> TargetRef {
+        let str = CString::new(tt.as_ref()).unwrap();
         TargetRef(unsafe{ ffi::LookUpTarget(str.as_c_str().as_ptr()) })
     }
 
@@ -39,11 +39,11 @@ impl Context {
         TargetMachineRef(unsafe { ffi::CreateTargetMachine(target.0, tt, cpu, features) })
     }
 
-    pub fn emit_obj_file<P: AsRef<str>>(p: P, m: &Module, tm: &TargetMachineRef) -> bool {
+    pub fn emit_obj_file(p: impl AsRef<str>, m: &Module, tm: &TargetMachineRef) -> bool {
         unsafe{ ffi::EmitObjFile(to_cstr!(p.as_ref()), m.ptr, tm.0) }
     }
 
-    pub fn emit_asm_file<P: AsRef<str>>(p: P, m: &Module, tm: &TargetMachineRef) -> bool {
+    pub fn emit_asm_file(p: impl AsRef<str>, m: &Module, tm: &TargetMachineRef) -> bool {
         unsafe{ ffi::EmitAsmFile(to_cstr!(p.as_ref()), m.ptr, tm.0) }
     }
 

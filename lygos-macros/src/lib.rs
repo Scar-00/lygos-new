@@ -54,7 +54,6 @@ pub fn visitor_impl(items: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(items as syn::DeriveInput);
     let ident = input.ident;
     let fn_ident = format_ident!("visit_{}", ident.to_string().to_lowercase());
-    //println!("{}", input.attrs[0].meta.require_list().unwrap().tokens);
     if let Data::Struct(_) = input.data {
         if let Ok(list) = input.attrs[0].meta.require_list() {
             if let Some(tok) = list.tokens.clone().into_iter().next() {
@@ -65,7 +64,6 @@ pub fn visitor_impl(items: TokenStream) -> TokenStream {
                         }
                     }
                 }.into();
-                //println!("{}", res);
                 return res;
             }
         }
@@ -92,7 +90,6 @@ pub fn visitor_impl(items: TokenStream) -> TokenStream {
                         }
                     }
                 }.into();
-                //println!("{}", res);
                 return res;
             }
         }

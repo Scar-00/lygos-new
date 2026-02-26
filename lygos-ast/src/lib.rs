@@ -86,6 +86,10 @@ impl AST {
             _ => false,
         }
     }
+
+    pub fn is_constant(&self) -> bool {
+        matches!(self, AST::NumberLiteral(_) | AST::StringLiteral(_) | AST::StaticLiteral(_))
+    }
 }
 
 #[derive(Debug)]

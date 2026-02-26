@@ -1,4 +1,4 @@
-use lygos_llvm::{builder::IRBuilder, context::Context, module::Module as LLVMModule, types::{DoubleTypeRef, FloatTypeRef, FunctionTypeRef, TypeRef}, value::{BasicBlock, ConstantFP, ConstantInt, Function as LLVMFunction, GlobalVariable, ValueRef}};
+use lygos_llvm::{builder::IRBuilder, context::Context, module::Module as LLVMModule, types::{DoubleTypeRef, FloatTypeRef, FunctionTypeRef, TypeRef}, value::{BasicBlock, ConstantFP, ConstantInt, ConstantStruct, Function as LLVMFunction, GlobalVariable, ValueRef}};
 use lygos_ast::{symbols::{self, Symbol, Variable}, types::Type, *};
 use lygos_logging::{ErrorLabel, Logger};
 use lygos_token::Tagged;
@@ -244,12 +244,6 @@ impl ASTVisitor for CodeGenerator<'_> {
                 }
 
                 let base = scope.resolve_type(base, &self.ctx);
-                /*{
-                    println!("obj_value: {}", obj_value.print());
-                    let obj = self.ctx.builder.create_load(&base, &obj_value);
-                    let v = self.ctx.builder.create_extract_value(&obj, &[0]);
-                    println!("v: {}", v.get_type().print());
-                }*/
                 Some(self.ctx.builder.create_struct_gep(&base, &obj_value, index as u32))
             },
             MemberExpr::Index { .. } => todo!(),
@@ -267,7 +261,7 @@ impl ASTVisitor for CodeGenerator<'_> {
         };
         if node.deref {
             let llvm_obj_typ = scope.resolve_type(&obj_typ, &self.ctx);
-            let ty = if !obj_value.get_type().matches(&llvm_obj_typ) {
+            let ty = if !obj_value.get_type().matches(llvm_obj_typ) {
                 llvm_obj_typ
             }else {
                 scope.resolve_type(obj_typ.get_base().unwrap(), &self.ctx)
@@ -322,7 +316,6 @@ impl ASTVisitor for CodeGenerator<'_> {
             "*" => {
                 let loc = node.accept(&mut self.locator, scope);
                 let obj_typ = node.obj.accept(&mut self.type_generator, scope);
-                println!("{obj_typ:#?}");
                 if !obj_typ.is_pointer_like() {
                     Logger::error_msg_label(
                         "cannot deref value type",
@@ -339,7 +332,7 @@ impl ASTVisitor for CodeGenerator<'_> {
                     //println!("obj: {:#?}", obj.get_type().print());
                     let base_ty = scope.resolve_type(&base, &self.ctx);
                     //println!("base: {:#?}", base_ty.print());
-                    let matches = !obj.get_type().matches(&base_ty);
+                    let matches = !obj.get_type().matches(base_ty);
                     //println!("matches: {matches}");
                     if matches {
                         self.ctx.builder.create_load(&base_ty, &obj, Some("unary-deref"))
@@ -374,24 +367,28 @@ impl ASTVisitor for CodeGenerator<'_> {
 
     fn visit_resolutionexpr(&mut self, node: &mut ResolutionExpr, scope: &mut Scope) -> Self::Output {
         let member_loc = node.member.accept(&mut self.locator, scope);
-        let AST::CallExpr(call) = &*node.member else {
-            todo!("error");
-        };
-        let AST::Identifier(member_id) = &*call.caller else {
-            todo!("error");
-        };
         let AST::Identifier(obj_id) = &*node.obj else {
             todo!("error");
+        };
+        let member_id = match &*node.member {
+            AST::Identifier(id) => &id.id,
+            AST::CallExpr(call) => {
+                let AST::Identifier(id) = &*call.caller else {
+                    todo!("error");
+                };
+                &id.id
+            }
+            _ => todo!("error"),
         };
         if scope.is_enum(&obj_id.id) {
             let ev = scope.get_enum(&obj_id.id);
             for (i, var) in ev.variants.iter().enumerate() {
-                if *var == *member_id.id.inner() {
+                if *var == *member_id.inner() {
                     return Some(ConstantInt::get(&scope.resolve_type(&ev.typ, &self.ctx), i as i32));
                 }
             }
             Logger::error_msg_label(
-                format!("unknown enum variant `{}` in enum `{}`", member_id.id.inner(), obj_id.id.inner()),
+                format!("unknown enum variant `{}` in enum `{}`", member_id.inner(), obj_id.id.inner()),
                 ErrorLabel::from(&member_loc, "unknown enum variant"),
             );
         }
@@ -458,11 +455,11 @@ impl ASTVisitor for CodeGenerator<'_> {
     }
 
     fn visit_binaryexpr(&mut self, node: &mut BinaryExpr, scope: &mut Scope) -> Self::Output {
-        let lhs_typ = node.lhs.accept(&mut self.type_generator, scope);
+        let mut lhs_typ = node.lhs.accept(&mut self.type_generator, scope);
         let Some(mut lhs) = node.lhs.accept(self, scope) else {
             todo!("error");
         };
-        let rhs_typ = node.rhs.accept(&mut self.type_generator, scope);
+        let mut rhs_typ = node.rhs.accept(&mut self.type_generator, scope);
         let Some(mut rhs) = node.rhs.accept(self, scope) else {
             todo!("error");
         };
@@ -473,6 +470,22 @@ impl ASTVisitor for CodeGenerator<'_> {
 
         if node.rhs.needs_load() {
             rhs = self.ctx.builder.create_load(&scope.resolve_type(&rhs_typ, &self.ctx), &rhs, Some("binop-rhs"));
+        }
+
+        if let Type::Pointer(ptr) = &lhs_typ {
+            let base = ptr.inner();
+            if ptr.is_ref && base.matches(&rhs_typ) {
+                lhs_typ = base;
+                lhs = self.ctx.builder.create_load(&scope.resolve_type(&lhs_typ, &self.ctx), &lhs, Some("binop-lhs"));
+            }
+        }
+
+        if let Type::Pointer(ptr) = &rhs_typ {
+            let base = ptr.inner();
+            if ptr.is_ref && base.matches(&lhs_typ) {
+                rhs_typ = base;
+                rhs = self.ctx.builder.create_load(&scope.resolve_type(&rhs_typ, &self.ctx), &rhs, Some("binop-rhs"));
+            }
         }
 
         if !lhs_typ.matches(&rhs_typ) {
@@ -501,8 +514,8 @@ impl ASTVisitor for CodeGenerator<'_> {
                 let true_bb = BasicBlock::new(self.ctx.ctx, "true", Some(&func), None);
                 let false_bb = BasicBlock::new(self.ctx.ctx, "false", Some(&func), None);
                 self.ctx.builder.create_cond_br(&lhs, &true_bb, &false_bb);
-                println!("lhs: {}", lhs.print());
-                println!("rhs: {}", rhs.print());
+                //println!("lhs: {}", lhs.print());
+                //println!("rhs: {}", rhs.print());
                 todo!();
             }
             _ => Logger::error_msg_label(
@@ -671,8 +684,13 @@ impl ASTVisitor for CodeGenerator<'_> {
         }
     }
 
-    fn visit_stringliteral(&mut self, _: &mut StringLiteral, _: &mut Scope) -> Self::Output {
-        todo!()
+    fn visit_stringliteral(&mut self, string: &mut StringLiteral, scope: &mut Scope) -> Self::Output {
+        let typ = string.accept(&mut self.type_generator, scope);
+        let unescaped = string.value.inner().replace("\\n", "\n");
+        Some(ConstantStruct::get(scope.resolve_type(&typ, &self.ctx), &[
+            self.ctx.builder.create_global_string_pointer(&unescaped),
+            ConstantInt::get(&TypeRef::get_int(self.ctx.ctx, 64), unescaped.len() as i32),
+        ]))
     }
 
     fn visit_structliteral(&mut self, node: &mut StructLiteral, scope: &mut Scope) -> Self::Output {
@@ -744,7 +762,7 @@ impl ASTVisitor for CodeGenerator<'_> {
         Some(var.alloca)
     }
 
-    fn visit_blockexpr(&mut self,node: &mut BlockExpr,scope: &mut Scope) -> Self::Output {
+    fn visit_blockexpr(&mut self, _: &mut BlockExpr, _: &mut Scope) -> Self::Output {
         todo!()
     }
 }

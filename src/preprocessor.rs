@@ -1,4 +1,4 @@
-use std::{collections::HashMap, process::id};
+use std::collections::HashMap;
 
 use lygos_ast::{types::{BaseTypes, Path, Pointer, Type}, *};
 use lygos_llvm::{types::{ArrayTypeRef, StructTypeRef, TypeRef}, value::{ConstantInt, ConstantStruct, ValueRef}};
@@ -109,7 +109,7 @@ impl Preprocessor {
         let zero = ConstantInt::get(&TypeRef::get_int(code_gen.ctx.ctx, 32), 0);
 
         let arg_ty = Type::Path(Path::new(Location::new("internal", 0..1), "Argument"));
-        let arr_ty = ArrayTypeRef::get(&scope.resolve_type(&arg_ty, &code_gen.ctx), args_expected).into();
+        let arr_ty = ArrayTypeRef::get(scope.resolve_type(&arg_ty, &code_gen.ctx), args_expected).into();
 
         let fmt_typ = scope.resolve_type(&scope.get_struct(&Tagged::new(Location::new("internal", 0..1), "Argument".to_string())).fields[1].typ, &code_gen.ctx);
 
@@ -166,7 +166,7 @@ impl Preprocessor {
             code_gen.ctx.builder.create_store(&code_gen.ctx.builder.create_load(&arg_ty, &arg, None::<&str>), &arr_index);
         }
         let piece_type = StructTypeRef::get(code_gen.ctx.ctx, &[TypeRef::get_ptr(TypeRef::get_int(code_gen.ctx.ctx, 8), 0), TypeRef::get_int(code_gen.ctx.ctx, 64)], false).into();
-        let pieces_ty = ArrayTypeRef::get(&piece_type, piecies.len()).into();
+        let pieces_ty = ArrayTypeRef::get(piece_type, piecies.len()).into();
         let pieces_arr = code_gen.ctx.builder.create_alloca(&pieces_ty, None);
 
         for (i, piece) in piecies.iter().enumerate() {
@@ -209,7 +209,7 @@ impl Preprocessor {
         let ty = Type::from_string(Tagged::new(loc, type_string)).unwrap();
         let ty = scope.resolve_type(&ty, &code_gen.ctx);
         let size = code_gen.ctx.module.get_data_layout().get_type_size_in_bits(&ty);
-        ConstantInt::get(&TypeRef::get_int(&code_gen.ctx.ctx, 64), size as i32 / 8)
+        ConstantInt::get(&TypeRef::get_int(code_gen.ctx.ctx, 64), size as i32 / 8)
         /*arg.push(Token::new(TokenType::Semi, arg.last().unwrap().loc.clone()));
         let mut parser = Parser::from(arg.clone());
         if let AST::Module(mut m) = parser.build_ast() {
@@ -350,7 +350,7 @@ impl ASTVisitor for Preprocessor {
         todo!()
     }
 
-    fn visit_blockexpr(&mut self,node: &mut BlockExpr,scope: &mut Scope) -> Self::Output {
+    fn visit_blockexpr(&mut self, _: &mut BlockExpr, _: &mut Scope) -> Self::Output {
         todo!()
     }
 }

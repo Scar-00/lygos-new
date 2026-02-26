@@ -14,30 +14,17 @@ use lygos_util::cli::CommandExt;
 
 use std::process::Command;
 
-const CLI: &[&str] = &["./simple", lygos_util::tests::concat!(lygos_util::tests::TEST_DIR, "/simple_program.ly")];
-
-/*
- *  TODO(K): fix references in the sense, that if not necessary they shouldn't be derefed and
- *  just be treated as 'pointers'
- *
- *  # Example
- *  fn bar(x: &Foo) { ... }
- *
- *  fn foo(x: &Foo) {
- *      bar(x);
- *  }
- *      ^ this should compile!
- *
- *  currently this produces a error in the following manor:
- *  ERROR: expected type is `&Foo`, provided type is `Foo`
- */
-
+const CLI: &[&str] = &["./simple", lygos_util::tests::concat!(lygos_util::tests::TEST_DIR, "/simple_program.ly"), "-e", "llvm-ir"];
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args = CliArgs::deligate_parse_from(CLI);
-    //let args = CliArgs::deligate_parse();
+    //let args = CliArgs::parse_from(CLI);
+    let args = CliArgs::parse();
+    color_eyre::install()?;
 
-    let mut lexer = Lexer::new(&args.input)?;
+    let Some(input) = args.input else {
+        return Err("No input file".to_string().into());
+    };
+    let mut lexer = Lexer::new(&input)?;
     let mut parser = Parser::from(lexer.get_tokens());
     let mut root = parser.build_ast();
 
@@ -52,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let target_machine = Context::create_target_machine(target, tt.as_str(), "generic", "");
 
     let ctx = Context::new();
-    let mut m = Module::new(args.input.display().to_string(), &ctx);
+    let mut m = Module::new(input.display().to_string(), &ctx);
     m.set_data_layout(&target_machine);
     m.set_target_triple(&tt);
     let builder = IRBuilder::new(&ctx);
@@ -60,13 +47,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut code_generator = code_gen::CodeGenerator::new(&ctx, &m, &builder);
     root.accept(&mut code_generator, &mut scope_root);
 
-    println!("{}", m.print());
+    //println!("{}", m.print());
 
-    let obj_path = args.input.with_extension("o");
+    let obj_path = input.with_extension("o");
     if !Context::emit_obj_file(obj_path.display().to_string(), &m, &target_machine) {
         return Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "fail")));
     }
-    let exe_path = args.input.with_extension("");
+    let exe_path = input.with_extension("");
     let mut cmd = Command::from_array(["clang", "-o", &exe_path.display().to_string(), &obj_path.display().to_string(), "-lc"]);
     println!("{}", cmd.display());
     cmd.output()?;

@@ -1,6 +1,6 @@
 use std::{ffi::{OsStr, OsString}, path::PathBuf};
 
-use clap::{Parser as _, ValueEnum};
+use clap::{Parser, ValueEnum};
 use std::process::Command;
 
 pub trait CommandExt {
@@ -23,7 +23,7 @@ impl CommandExt for Command {
             output.push(" ");
             output.push(arg);
         });
-        output.to_string_lossy().to_string()
+        output.display().to_string()
     }
 }
 
@@ -33,25 +33,26 @@ pub enum EmitType {
     AST,
 }
 
-#[derive(Debug, clap::Parser)]
+#[derive(Debug, Parser)]
 pub struct CliArgs {
-    pub input: PathBuf,
-    #[arg(short, long)]
+    #[arg(global = true)]
+    pub input: Option<PathBuf>,
+    #[arg(short, long, global = true)]
     pub output: Option<PathBuf>,
-    #[arg(value_enum, short, long)]
+    #[arg(value_enum, short, long, global = true)]
     pub emit_type: Option<EmitType>
 }
 
 impl CliArgs {
-    pub fn deligate_parse() -> Self {
-        Self::parse()
+    pub fn parse() -> Self {
+        <Self as Parser>::parse()
     }
 
-    pub fn deligate_parse_from<I, T>(iter: I) -> Self
+    pub fn parse_from<I, T>(iter: I) -> Self
         where
             I: IntoIterator<Item = T>,
             T: Into<OsString> + Clone,
     {
-        Self::parse_from(iter)
+        <Self as Parser>::parse_from(iter)
     }
 }

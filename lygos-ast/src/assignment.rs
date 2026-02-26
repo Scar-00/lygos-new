@@ -64,7 +64,7 @@ impl CastExpr {
                 return CastOps::IntToPtr;
             }
         }
-        if src.is_struct_ty() && dest.is_struct_ty() && src.can_losslessly_bit_cast_to(dest) {
+        if src.is_struct_ty() && dest.is_struct_ty() && src.can_losslessly_bit_cast_to(*dest) {
             return CastOps::BitCast;
         }
         Logger::error_msg_labels("unable to convert types", &[

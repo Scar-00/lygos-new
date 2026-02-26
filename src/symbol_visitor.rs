@@ -133,7 +133,7 @@ impl ASTVisitor for SymbolCollector {
 
     fn visit_identifier(&mut self, _: &mut Identifier, _: &mut Scope) -> Self::Output {}
 
-    fn visit_blockexpr(&mut self,node: &mut BlockExpr,scope: &mut Scope) -> Self::Output {
+    fn visit_blockexpr(&mut self, _: &mut BlockExpr, _: &mut Scope) -> Self::Output {
         todo!()
     }
 }

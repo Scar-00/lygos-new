@@ -129,7 +129,7 @@ impl ASTVisitor for Locator {
         node.id.loc().clone()
     }
 
-    fn visit_blockexpr(&mut self,node: &mut BlockExpr,scope: &mut Scope) -> Self::Output {
+    fn visit_blockexpr(&mut self, _: &mut BlockExpr, _: &mut Scope) -> Self::Output {
         todo!()
     }
 }

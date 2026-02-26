@@ -291,7 +291,7 @@ extern "C" {
     }
 
     llvm::Value *BuilderCreateGlobalStringPointer(llvm::IRBuilder<> *builder, const char *string) {
-        return builder->CreateGlobalStringPtr(string);
+        return builder->CreateGlobalString(string);
     }
 
     llvm::Type *GetIntType(llvm::LLVMContext *ctx, size_t width) {
@@ -387,6 +387,7 @@ extern "C" {
 
     llvm::StructType *StructTypeGet(llvm::LLVMContext *ctx, llvm::Type **elems, size_t elems_count, bool packed) {
         std::vector<llvm::Type*> elems_arr;
+        elems_arr.reserve(elems_count);
         for(size_t i = 0; i < elems_count; i++) {
             elems_arr.push_back(elems[i]);
         }

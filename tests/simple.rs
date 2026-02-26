@@ -6,7 +6,7 @@ const CLI: &'static [&str] = &["./simple", lygos_util::tests::concat!(lygos_util
 
 #[test]
 fn simple() -> Result<(), Box<dyn std::error::Error>> {
-    let args = CliArgs::deligate_parse_from(CLI);
+    let args = CliArgs::parse_from(CLI);
 
     let mut lexer = Lexer::new(&args.input)?;
     let mut parser = Parser::from(lexer.get_tokens());

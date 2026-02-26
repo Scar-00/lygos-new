@@ -51,12 +51,12 @@ impl Logger {
 
 impl Logger {
     fn load_file(path: impl AsRef<Path>) -> String {
-        match fs::read_to_string(path) {
+        match fs::read_to_string(&path) {
             Ok(content) => {
                 content
             }
             Err(e) => {
-                panic!("failed to load source file: {e}")
+                panic!("failed to load source file({}): {e}", path.as_ref().display())
             }
         }
     }

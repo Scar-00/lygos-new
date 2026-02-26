@@ -52,7 +52,7 @@ impl TypeRef {
         unsafe{ ffi::TypeIsArrayType(self.0) }
     }
 
-    pub fn can_losslessly_bit_cast_to(&self, dest: &TypeRef) -> bool {
+    pub fn can_losslessly_bit_cast_to(&self, dest: TypeRef) -> bool {
         unsafe{ ffi::TypeCanLossLesslyBitCast(self.0, dest.0) }
     }
 
@@ -71,7 +71,7 @@ impl TypeRef {
         Self(unsafe{ ffi::TypeGetContainedType(self.0, index) })
     }
 
-    pub fn matches(&self, other: &TypeRef) -> bool {
+    pub fn matches(&self, other: TypeRef) -> bool {
         unsafe{ ffi::TypeMatches(self.0, other.0) }
     }
 
@@ -130,7 +130,7 @@ impl From<StructTypeRef> for TypeRef {
 pub struct ArrayTypeRef(*mut ());
 
 impl ArrayTypeRef {
-    pub fn get(ty: &TypeRef, elems_count: usize) -> Self {
+    pub fn get(ty: TypeRef, elems_count: usize) -> Self {
         Self(unsafe{ ffi::ArrayTypeGet(ty.0, elems_count) })
     }
 }
