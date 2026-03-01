@@ -8,17 +8,20 @@ pub struct FFIString {
 
 impl From<FFIString> for String {
     fn from(value: FFIString) -> Self {
-        unsafe { String::from_raw_parts(value.data, (value.len - 1) as usize, value.len as usize) }
+        let mut string = String::new();
+        for i in 0..value.len as usize {
+            string.push(unsafe { value.data.add(i).read().into() });
+        }
+        string
+        //unsafe { String::from_raw_parts(value.data, (value.len - 1) as usize, value.len as usize) }
     }
 }
 
 macro_rules! to_cstr {
-    ($s: expr) => {
-        {
-            use std::ffi::CString;
-            CString::new($s).unwrap().into_raw()
-        }
-    };
+    ($s: expr) => {{
+        use std::ffi::CString;
+        CString::new($s).unwrap().into_raw()
+    }};
 }
 
 pub(crate) use to_cstr;
@@ -54,10 +57,15 @@ unsafe extern "C" {
     pub fn LookUpTarget(tt: CStr) -> *mut ();
     pub fn CreateTargetMachine(target: *mut (), tt: CStr, cpu: CStr, features: CStr) -> *mut ();
     pub fn CreateModule(name: CStr, ctx: *mut ()) -> *mut ();
+    pub fn CreateModuleFromFile(name: CStr, ctx: *mut ()) -> *mut ();
     pub fn DestroyModule(_: *mut ());
     pub fn ModuleSetDataLayout(m: *mut (), machine: *mut ());
     pub fn ModuleSetTargetTripple(m: *mut (), tt: CStr);
     pub fn ModuleGetDataLayout(m: *mut ()) -> *mut ();
+
+    pub fn CreateJitEngine() -> *mut ();
+    pub fn JitEngineAddModule(engine: *mut (), m: *mut ());
+    pub fn JitEngineLookup(engine: *mut (), name: CStr) -> *mut ();
 
     pub fn DataLayoutGetTypeAllocSizeInBits(dl: *mut (), ty: *mut ()) -> usize;
 
@@ -76,14 +84,47 @@ unsafe extern "C" {
     pub fn BuilderCreateAlloca(builder: *mut (), ty: *mut (), array_size: *mut ()) -> *mut ();
     pub fn BuilderCreateRet(builder: *mut (), value: *mut ()) -> *mut ();
     pub fn BuilderCreateRetVoid(builder: *mut ()) -> *mut ();
-    pub fn BuilderCreatePtrCall(builder: *mut (), ty: *mut (), callee: *mut (), args: *mut *mut (), args_size: usize) -> *mut ();
-    pub fn BuilderCreateCall(builder: *mut (), callee: *mut (), args: *mut *mut (), args_size: usize) -> *mut ();
-    pub fn BuilderCreateGEP(builder: *mut (), base: *mut (), val: *mut (), idx_list: *mut *mut (), idx_count: usize, in_bounds: bool) -> *mut ();
-    pub fn BuilderCreateExtractValue(builder: *mut (), agg: *mut (), idx_list: *mut (), idx_count: usize) -> *mut ();
-    pub fn BuilderCreateStructGEP(builder: *mut (), base: *mut (), val: *mut (), index: u32) -> *mut ();
+    pub fn BuilderCreatePtrCall(
+        builder: *mut (),
+        ty: *mut (),
+        callee: *mut (),
+        args: *mut *mut (),
+        args_size: usize,
+    ) -> *mut ();
+    pub fn BuilderCreateCall(
+        builder: *mut (),
+        callee: *mut (),
+        args: *mut *mut (),
+        args_size: usize,
+    ) -> *mut ();
+    pub fn BuilderCreateGEP(
+        builder: *mut (),
+        base: *mut (),
+        val: *mut (),
+        idx_list: *mut *mut (),
+        idx_count: usize,
+        in_bounds: bool,
+    ) -> *mut ();
+    pub fn BuilderCreateExtractValue(
+        builder: *mut (),
+        agg: *mut (),
+        idx_list: *mut (),
+        idx_count: usize,
+    ) -> *mut ();
+    pub fn BuilderCreateStructGEP(
+        builder: *mut (),
+        base: *mut (),
+        val: *mut (),
+        index: u32,
+    ) -> *mut ();
     pub fn BuilderCreateXorVV(builder: *mut (), lhs: *mut (), rhs: *mut ()) -> *mut ();
     pub fn BuilderCreateXorVL(builder: *mut (), lhs: *mut (), rhs: u64) -> *mut ();
-    pub fn BuilderCreateCast(builder: *mut (), op: CastOps, src: *mut (), dest_ty: *mut ()) -> *mut ();
+    pub fn BuilderCreateCast(
+        builder: *mut (),
+        op: CastOps,
+        src: *mut (),
+        dest_ty: *mut (),
+    ) -> *mut ();
     pub fn BuilderCreatePointerCast(builder: *mut (), value: *mut (), dest_ty: *mut ()) -> *mut ();
     pub fn BuilderCreateAdd(builder: *mut (), lhs: *mut (), rhs: *mut ()) -> *mut ();
     pub fn BuilderCreateSub(builder: *mut (), lhs: *mut (), rhs: *mut ()) -> *mut ();
@@ -98,24 +139,39 @@ unsafe extern "C" {
     pub fn BuilderCreateICmpSGE(builder: *mut (), lhs: *mut (), rhs: *mut ()) -> *mut ();
     pub fn BuilderCreateGlobalStringPointer(builder: *mut (), string: CStr) -> *mut ();
 
-
     pub fn BuilderCreateBr(builder: *mut (), bb: *mut ()) -> *mut ();
-    pub fn BuilderCreateCondBr(builder: *mut (), cond: *mut (), true_bb: *mut (), false_bb: *mut ()) -> *mut ();
+    pub fn BuilderCreateCondBr(
+        builder: *mut (),
+        cond: *mut (),
+        true_bb: *mut (),
+        false_bb: *mut (),
+    ) -> *mut ();
 
-    pub fn GetPointerType(ty: *mut(), address_space: u32) -> *mut ();
+    pub fn GetPointerType(ty: *mut (), address_space: u32) -> *mut ();
 
     pub fn GetIntType(ctx: *mut (), width: usize) -> *mut ();
     pub fn GetConstantInt(typ: *mut (), value: i32) -> *mut ();
     pub fn GetConstantFP(ty: *mut (), value: f64) -> *mut ();
-    pub fn GetConstantStruct(ty: *mut (), constatns: *mut *mut (), constatns_len: usize) -> *mut ();
+    pub fn GetConstantStruct(ty: *mut (), constatns: *mut *mut (), constatns_len: usize)
+        -> *mut ();
     pub fn GetConstantArr(ty: *mut (), values: *mut *mut (), values_len: usize) -> *mut ();
 
-    pub fn FunctionTypeGet(ret: *mut (), params: *mut *mut (), len: usize, is_var_arg: bool) -> *mut ();
+    pub fn FunctionTypeGet(
+        ret: *mut (),
+        params: *mut *mut (),
+        len: usize,
+        is_var_arg: bool,
+    ) -> *mut ();
 
     pub fn StructTypeCreate(elems: *mut *mut (), len: usize, name: CStr, packed: bool) -> *mut ();
     pub fn StructTypeCreateOpaque(ctx: *mut (), name: CStr) -> *mut ();
     pub fn StructTypeSetBody(ty: *mut (), elems: *mut *mut (), len: usize, packed: bool);
-    pub fn StructTypeGet(ctx: *mut (), elems: *mut *mut (), elems_count: usize, packed: bool) -> *mut ();
+    pub fn StructTypeGet(
+        ctx: *mut (),
+        elems: *mut *mut (),
+        elems_count: usize,
+        packed: bool,
+    ) -> *mut ();
 
     pub fn ArrayTypeGet(ty: *mut (), num_elems: usize) -> *mut ();
 
@@ -146,9 +202,12 @@ unsafe extern "C" {
     pub fn FunctionIsVarArg(func: *mut ()) -> bool;
     pub fn FunctionGetType(func: *mut ()) -> *mut ();
 
-
-    pub fn GlobalVariableCreate(m: *mut (), ty: *mut (), is_constant: bool, val: *mut ()) -> *mut ();
-
+    pub fn GlobalVariableCreate(
+        m: *mut (),
+        ty: *mut (),
+        is_constant: bool,
+        val: *mut (),
+    ) -> *mut ();
 
     pub fn CreateBasicBlock(ctx: *mut (), name: CStr, parent: *mut (), before: *mut ()) -> *mut ();
     pub fn BasicBlockGetParent(bb: *mut ()) -> *mut ();

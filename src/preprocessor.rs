@@ -1,14 +1,21 @@
 use std::collections::HashMap;
 
-use lygos_ast::{types::{BaseTypes, Path, Pointer, Type}, *};
-use lygos_llvm::{types::{ArrayTypeRef, StructTypeRef, TypeRef}, value::{ConstantInt, ConstantStruct, ValueRef}};
+use lygos_ast::{
+    types::{BaseTypes, Path, Pointer, Type},
+    *,
+};
+use lygos_llvm::{
+    types::{ArrayTypeRef, StructTypeRef, TypeRef},
+    value::{ConstantInt, ConstantStruct, ValueRef},
+};
 use lygos_logging::{ErrorLabel, Logger};
 use lygos_parser::Parser;
 use lygos_token::{Location, Tagged, Token, TokenType};
 
 use crate::code_gen::CodeGenerator;
 
-type IntrinsicCall = fn(call: &MacroCall, scope: &mut Scope, code_gen: &mut CodeGenerator) -> ValueRef;
+type IntrinsicCall =
+    fn(call: &MacroCall, scope: &mut Scope, code_gen: &mut CodeGenerator) -> ValueRef;
 lazy_static::lazy_static! {
     pub static ref IntrinsicMarcos: HashMap<&'static str, IntrinsicCall> = {
         let mut map = HashMap::<&'static str, IntrinsicCall>::new();
@@ -25,7 +32,12 @@ lazy_static::lazy_static! {
 pub struct Preprocessor;
 
 impl Preprocessor {
-    fn get_formatting_function(call_loc: &Location, ty: Type, scope: &mut Scope, debug: bool) -> String {
+    fn get_formatting_function(
+        call_loc: &Location,
+        ty: Type,
+        scope: &mut Scope,
+        debug: bool,
+    ) -> String {
         let name = ty.get_full_name();
         let tagged = Tagged::new(ty.get_loc(), name.clone());
         if BaseTypes.contains(&name.as_str()) {
@@ -39,23 +51,31 @@ impl Preprocessor {
                 if !scope.get_struct(&tagged).implements_trait("Debug") {
                     Logger::error_msg_label(
                         format!("type `{}` does not implement trait `Debug`", name).as_str(),
-                        ErrorLabel::from(call_loc, "not formattable")
+                        ErrorLabel::from(call_loc, "not formattable"),
                     );
                 }
-                return scope.get_struct(&tagged).get_function(call_loc, "fmt_debug").name_mangeled.clone();
-            }else {
+                return scope
+                    .get_struct(&tagged)
+                    .get_function(call_loc, "fmt_debug")
+                    .name_mangeled
+                    .clone();
+            } else {
                 if !scope.get_struct(&tagged).implements_trait("Display") {
                     Logger::error_msg_label(
                         format!("type `{}` does not implement trait `Display`", name).as_str(),
-                        ErrorLabel::from(call_loc, "not formattable")
+                        ErrorLabel::from(call_loc, "not formattable"),
                     );
                 }
-                return scope.get_struct(&tagged).get_function(call_loc, "fmt").name_mangeled.clone();
+                return scope
+                    .get_struct(&tagged)
+                    .get_function(call_loc, "fmt")
+                    .name_mangeled
+                    .clone();
             }
         }
         Logger::error_msg_label(
             format!("cannot format type `{}` with the default formatter", name).as_str(),
-            ErrorLabel::from(call_loc, "not formattable")
+            ErrorLabel::from(call_loc, "not formattable"),
         );
     }
 
@@ -63,7 +83,11 @@ impl Preprocessor {
         let format_string = call.args[0][0].clone();
 
         let TokenType::String(format_string) = format_string.typ else {
-            Logger::token_expected(&format_string.loc, "unexpected token found", "expected string literal as first argument to `format_args`");
+            Logger::token_expected(
+                &format_string.loc,
+                "unexpected token found",
+                "expected string literal as first argument to `format_args`",
+            );
         };
 
         let mut format_string = format_string.as_str();
@@ -74,13 +98,13 @@ impl Preprocessor {
             args_expected += 1;
             piecies.push(format_string[..pos].to_string());
             if pos + 3 < format_string.len() {
-                if format_string[pos+1..pos+3] == *":?" {
+                if format_string[pos + 1..pos + 3] == *":?" {
                     pos += 2;
                     debug.push(true);
-                }else {
+                } else {
                     debug.push(false);
                 }
-            }else {
+            } else {
                 debug.push(false);
             }
             format_string = &format_string[pos + 2..];
@@ -91,13 +115,18 @@ impl Preprocessor {
 
         if call.args.len() != args_expected + 1 {
             Logger::error_msg_label(
-                format!("macro `format_args` expected `{}` args, but `{}` were provided", args_expected, call.args.len()).as_str(),
-                ErrorLabel::from(call.id.loc(), "incorrect number of arguments")
+                format!(
+                    "macro `format_args` expected `{}` args, but `{}` were provided",
+                    args_expected,
+                    call.args.len()
+                )
+                .as_str(),
+                ErrorLabel::from(call.id.loc(), "incorrect number of arguments"),
             );
         }
 
         let mut arg_idents: Vec<AST> = Vec::new();
-        for i in 1..args_expected+1 {
+        for i in 1..args_expected + 1 {
             let mut arg = call.args[i].clone();
             arg.push(Token::new(TokenType::Semi, Location::new("internal", 0..1)));
             let mut parser = Parser::from(arg);
@@ -109,9 +138,19 @@ impl Preprocessor {
         let zero = ConstantInt::get(&TypeRef::get_int(code_gen.ctx.ctx, 32), 0);
 
         let arg_ty = Type::Path(Path::new(Location::new("internal", 0..1), "Argument"));
-        let arr_ty = ArrayTypeRef::get(scope.resolve_type(&arg_ty, &code_gen.ctx), args_expected).into();
+        let arr_ty =
+            ArrayTypeRef::get(scope.resolve_type(&arg_ty, &code_gen.ctx), args_expected).into();
 
-        let fmt_typ = scope.resolve_type(&scope.get_struct(&Tagged::new(Location::new("internal", 0..1), "Argument".to_string())).fields[1].typ, &code_gen.ctx);
+        let fmt_typ = scope.resolve_type(
+            &scope
+                .get_struct(&Tagged::new(
+                    Location::new("internal", 0..1),
+                    "Argument".to_string(),
+                ))
+                .fields[1]
+                .typ,
+            &code_gen.ctx,
+        );
 
         let args_arr = code_gen.ctx.builder.create_alloca(&arr_ty, None);
         for i in 0..args_expected {
@@ -121,31 +160,47 @@ impl Preprocessor {
                 todo!("");
             };
 
-            let Some(func) = code_gen.ctx.module.get_function(Self::get_formatting_function(
+            let Some(func) = code_gen
+                .ctx
+                .module
+                .get_function(Self::get_formatting_function(
                     call.id.loc(),
                     arg_idents[i].accept(&mut code_gen.type_generator, scope),
                     scope,
-                    debug[i])
-            ) else {
+                    debug[i],
+                ))
+            else {
                 Logger::error_msg_label(
-                    format!("failed to get formatting function for `{}`", Self::get_formatting_function(call.id.loc(), arg_idents[i].accept(&mut code_gen.type_generator, scope), scope, debug[i])).as_str(),
-                    ErrorLabel::from(call.id.loc(), "not formattable")
+                    format!(
+                        "failed to get formatting function for `{}`",
+                        Self::get_formatting_function(
+                            call.id.loc(),
+                            arg_idents[i].accept(&mut code_gen.type_generator, scope),
+                            scope,
+                            debug[i]
+                        )
+                    )
+                    .as_str(),
+                    ErrorLabel::from(call.id.loc(), "not formattable"),
                 );
             };
 
             let arg_ty = scope.resolve_type(&arg_ty, &code_gen.ctx);
             let arg = code_gen.ctx.builder.create_alloca(&arg_ty, None);
             let type_ptr = Type::Pointer(Pointer::new(
-                    Location::new("internal", 0..1),
-                    Box::new(arg_idents[i].accept(&mut code_gen.type_generator, scope)),
-                    false,
-                    false
+                Location::new("internal", 0..1),
+                Box::new(arg_idents[i].accept(&mut code_gen.type_generator, scope)),
+                false,
+                false,
             ));
             let value_ty = scope.resolve_type(&type_ptr, &code_gen.ctx);
             let value = code_gen.ctx.builder.create_alloca(&value_ty, None);
 
             if !value_val.get_type().is_pointer_ty() {
-                let alloc = code_gen.ctx.builder.create_alloca(&value_val.get_type(), None);
+                let alloc = code_gen
+                    .ctx
+                    .builder
+                    .create_alloca(&value_val.get_type(), None);
                 code_gen.ctx.builder.create_store(&value_val, &alloc);
                 value_val = alloc;
             }
@@ -153,51 +208,102 @@ impl Preprocessor {
             code_gen.ctx.builder.create_store(&value_val, &value);
 
             let value_gep = code_gen.ctx.builder.create_struct_gep(&arg_ty, &arg, 0);
-            let load = code_gen.ctx.builder.create_load(&value_ty, &value, None::<&str>);
-            let cast = code_gen.ctx.builder.create_pointer_cast(&load, &TypeRef::get_ptr(TypeRef::get_int(code_gen.ctx.ctx, 8), 0));
+            let load = code_gen
+                .ctx
+                .builder
+                .create_load(&value_ty, &value, None::<&str>);
+            let cast = code_gen.ctx.builder.create_pointer_cast(
+                &load,
+                &TypeRef::get_ptr(TypeRef::get_int(code_gen.ctx.ctx, 8), 0),
+            );
             code_gen.ctx.builder.create_store(&cast, &value_gep);
 
             let ptr_gep = code_gen.ctx.builder.create_struct_gep(&arg_ty, &arg, 1);
-            let cast = code_gen.ctx.builder.create_pointer_cast(&func.into(), &fmt_typ);
+            let cast = code_gen
+                .ctx
+                .builder
+                .create_pointer_cast(&func.into(), &fmt_typ);
             code_gen.ctx.builder.create_store(&cast, &ptr_gep);
 
             let idx = ConstantInt::get(&TypeRef::get_int(code_gen.ctx.ctx, 32), i as i32);
-            let arr_index = code_gen.ctx.builder.create_gep(&arr_ty, &args_arr, &[zero, idx], true);
-            code_gen.ctx.builder.create_store(&code_gen.ctx.builder.create_load(&arg_ty, &arg, None::<&str>), &arr_index);
+            let arr_index = code_gen
+                .ctx
+                .builder
+                .create_gep(&arr_ty, &args_arr, &[zero, idx], true);
+            code_gen.ctx.builder.create_store(
+                &code_gen
+                    .ctx
+                    .builder
+                    .create_load(&arg_ty, &arg, None::<&str>),
+                &arr_index,
+            );
         }
-        let piece_type = StructTypeRef::get(code_gen.ctx.ctx, &[TypeRef::get_ptr(TypeRef::get_int(code_gen.ctx.ctx, 8), 0), TypeRef::get_int(code_gen.ctx.ctx, 64)], false).into();
+        let piece_type = StructTypeRef::get(
+            code_gen.ctx.ctx,
+            &[
+                TypeRef::get_ptr(TypeRef::get_int(code_gen.ctx.ctx, 8), 0),
+                TypeRef::get_int(code_gen.ctx.ctx, 64),
+            ],
+            false,
+        )
+        .into();
         let pieces_ty = ArrayTypeRef::get(piece_type, piecies.len()).into();
         let pieces_arr = code_gen.ctx.builder.create_alloca(&pieces_ty, None);
 
         for (i, piece) in piecies.iter().enumerate() {
             let idx = ConstantInt::get(&TypeRef::get_int(code_gen.ctx.ctx, 32), i as i32);
-            let gep = code_gen.ctx.builder.create_gep(&pieces_ty, &pieces_arr, &[zero, idx], true);
-            let lit = ConstantStruct::get(piece_type,
+            let gep = code_gen
+                .ctx
+                .builder
+                .create_gep(&pieces_ty, &pieces_arr, &[zero, idx], true);
+            let lit = ConstantStruct::get(
+                piece_type,
                 &[
-                    code_gen.ctx.builder.create_global_string_pointer(piece.as_str()),
-                    ConstantInt::get(&TypeRef::get_int(code_gen.ctx.ctx, 64), piece.len() as i32)
-                ]
+                    code_gen
+                        .ctx
+                        .builder
+                        .create_global_string_pointer(piece.as_str()),
+                    ConstantInt::get(&TypeRef::get_int(code_gen.ctx.ctx, 64), piece.len() as i32),
+                ],
             );
             code_gen.ctx.builder.create_store(&lit, &gep);
         }
 
-        let arr_idx = code_gen.ctx.builder.create_gep(&arr_ty, &args_arr, &[zero, zero], true);
-        let pieces_idx = code_gen.ctx.builder.create_gep(&pieces_ty, &pieces_arr, &[zero, zero], true);
+        let arr_idx = code_gen
+            .ctx
+            .builder
+            .create_gep(&arr_ty, &args_arr, &[zero, zero], true);
+        let pieces_idx =
+            code_gen
+                .ctx
+                .builder
+                .create_gep(&pieces_ty, &pieces_arr, &[zero, zero], true);
 
         let Some(func) = code_gen.ctx.module.get_function("Arguments_new") else {
             Logger::error_msg("internal", "Arguments::new is undefined");
         };
-        code_gen.ctx.builder.create_call(&func.into(), &[
-            arr_idx, ConstantInt::get(&TypeRef::get_int(code_gen.ctx.ctx, 32), args_expected as i32),
-            pieces_idx, ConstantInt::get(&TypeRef::get_int(code_gen.ctx.ctx, 32), piecies.len() as i32),
-        ])
+        code_gen.ctx.builder.create_call(
+            &func.into(),
+            &[
+                arr_idx,
+                ConstantInt::get(
+                    &TypeRef::get_int(code_gen.ctx.ctx, 32),
+                    args_expected as i32,
+                ),
+                pieces_idx,
+                ConstantInt::get(
+                    &TypeRef::get_int(code_gen.ctx.ctx, 32),
+                    piecies.len() as i32,
+                ),
+            ],
+        )
     }
 
     fn macro_sizeof(call: &MacroCall, scope: &mut Scope, code_gen: &mut CodeGenerator) -> ValueRef {
         if call.args.len() != 1 {
             Logger::error_msg_label(
                 "macro `sizeof` expected exactly 1 argument",
-                ErrorLabel::from(call.id.loc(), "invalid number of arguments")
+                ErrorLabel::from(call.id.loc(), "invalid number of arguments"),
             );
         }
 
@@ -208,7 +314,11 @@ impl Preprocessor {
         };
         let ty = Type::from_string(Tagged::new(loc, type_string)).unwrap();
         let ty = scope.resolve_type(&ty, &code_gen.ctx);
-        let size = code_gen.ctx.module.get_data_layout().get_type_size_in_bits(&ty);
+        let size = code_gen
+            .ctx
+            .module
+            .get_data_layout()
+            .get_type_size_in_bits(&ty);
         ConstantInt::get(&TypeRef::get_int(code_gen.ctx.ctx, 64), size as i32 / 8)
         /*arg.push(Token::new(TokenType::Semi, arg.last().unwrap().loc.clone()));
         let mut parser = Parser::from(arg.clone());

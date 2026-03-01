@@ -1,0 +1,8 @@
+[
+  {
+    "directory": "C:\\dev\\learning\\lygos\\lygos-llvm",
+    "file": "C:\\dev\\learning\\lygos\\lygos-llvm\\src\\bindings.cpp",
+    "output": "C:\\dev\\learning\\lygos\\target\\debug\\build\\lygos-llvm-5d0e51a12867046d\\out\\bindings.o",
+    "arguments": ["C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.44.35207\\bin\\HostX64\\x64\\cl.exe", "-c", "C:\\dev\\learning\\lygos\\lygos-llvm\\src\\bindings.cpp", "-o", "C:\\dev\\learning\\lygos\\target\\debug\\build\\lygos-llvm-5d0e51a12867046d\\out\\bindings.o", "/I", "C:\\LLVM\\include", "/std:c++20"]
+  }
+]

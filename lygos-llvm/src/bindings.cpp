@@ -1,9 +1,18 @@
+#include "llvm/ExecutionEngine/Orc/ExecutorProcessControl.h"
+#include "llvm/ExecutionEngine/Orc/IRCompileLayer.h"
+#include "llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h"
+#include "llvm/ExecutionEngine/Orc/Layer.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/Support/AtomicOrdering.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include <cstdlib>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Value.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Support/ErrorHandling.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
@@ -27,6 +36,13 @@
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/MC/TargetRegistry.h>
 #include <llvm/Linker/Linker.h>
+#include <llvm/ExecutionEngine/Orc/Core.h>
+#include <llvm/ExecutionEngine/Orc/CompileUtils.h>
+#include <llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h>
+#include <llvm/ExecutionEngine/Orc/IRCompileLayer.h>
+#include <llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h>
+#include <llvm/ExecutionEngine/Orc/LLJIT.h>
+#include <llvm/IRReader/IRReader.h>
 
 struct FFIString {
     char *data;
@@ -46,9 +62,9 @@ FFIArray<T> FFIArray_Create(size_t size) {
 
 FFIString FFIString_Create(std::string s) {
     FFIString str;
-    str.len = s.size() + 1;
+    str.len = s.size();
     str.data = (char *)calloc(str.len, sizeof(char));
-    std::memcpy(str.data, s.data(), str.len * sizeof(char));
+    std::memcpy(str.data, s.data(), s.length() * sizeof(char));
     return str;
 }
 
@@ -68,6 +84,13 @@ enum ExternCastOps {
     AddrSpaceCast,
 };
 
+struct JitEngine {
+    JitEngine(std::unique_ptr<llvm::orc::LLJIT> jit): jit(std::move(jit)) {
+    }
+
+    std::unique_ptr<llvm::orc::LLJIT> jit;
+};
+
 llvm::Instruction::CastOps convert_ops(ExternCastOps op) {
     switch(op) {
         case SExt: return llvm::Instruction::CastOps::SExt;
@@ -84,7 +107,7 @@ llvm::Instruction::CastOps convert_ops(ExternCastOps op) {
         case PtrToInt: return llvm::Instruction::CastOps::PtrToInt;
         case AddrSpaceCast: return llvm::Instruction::CastOps::AddrSpaceCast;
     }
-    __builtin_unreachable();
+    llvm_unreachable("invalid ExternCastOps value");
 }
 
 extern "C" {
@@ -104,6 +127,16 @@ extern "C" {
 
     llvm::Module *CreateModule(const char *name, llvm::LLVMContext *ctx) {
         return new llvm::Module(name, *ctx);
+    }
+
+    llvm::Module *CreateModuleFromPath(const char *path, llvm::LLVMContext *ctx) {
+        llvm::SMDiagnostic err;
+        auto module = llvm::parseIRFile(path, err, *ctx);
+        if(!module) {
+            err.print("LoadModuleFromFile", llvm::errs());
+            return NULL;
+        }
+        return module.release();
     }
 
     void DestroyModule(llvm::Module *mod) {
@@ -131,6 +164,42 @@ extern "C" {
 
     const llvm::DataLayout *ModuleGetDataLayout(llvm::Module *mod) {
         return &mod->getDataLayout();
+    }
+
+    JitEngine *CreateJitEngine() {
+        /*auto epc = llvm::orc::SelfExecutorProcessControl::Create();
+        if(!epc) {
+            std::abort();
+        }
+        auto es = new llvm::orc::ExecutionSession(std::move(*epc));
+        llvm::orc::JITTargetMachineBuilder jtmb(es->getExecutorProcessControl().getTargetTriple());
+        auto dl = jtmb.getDefaultDataLayoutForTarget();
+        if(!dl) {
+            std::abort();
+        }
+        auto layout = (llvm::DataLayout *)malloc(sizeof(llvm::DataLayout));
+        *layout = dl.get();
+        auto mangle = new llvm::orc::MangleAndInterner(*es, dl.get());
+        llvm::orc::RTDyldObjectLinkingLayer *object_layer = new llvm::orc::RTDyldObjectLinkingLayer(*es, [](const llvm::MemoryBuffer &) {
+            return std::make_unique<llvm::SectionMemoryManager>();
+        });*/
+        auto jit_res = llvm::orc::LLJITBuilder().create();
+        std::unique_ptr<llvm::orc::LLJIT> jit = std::move(jit_res.get());
+        return new JitEngine(std::move(jit));
+    }
+
+    void JitEngineAddModule(JitEngine *engine, llvm::Module *mod) {
+        std::unique_ptr<llvm::Module> unique_mod(mod);
+        llvm::orc::ThreadSafeModule tsm(std::move(unique_mod), std::make_unique<llvm::LLVMContext>());
+        auto err = engine->jit->addIRModule(std::move(tsm));
+    }
+
+    void *JitEngineLookup(JitEngine *engine, const char *name) {
+        auto res = engine->jit->lookup(name);
+        if(!res) {
+            return NULL;
+        }
+        return (void*)res->getValue();
     }
 
     size_t DataLayoutGetTypeAllocSizeInBits(llvm::DataLayout *dl, llvm::Type *ty) {

@@ -1,10 +1,11 @@
 #![allow(non_snake_case)]
 #![allow(unused)]
 
-pub mod context;
 pub mod builder;
+pub mod context;
+mod ffi;
+pub mod jit;
 pub mod module;
-pub mod value;
 pub mod types;
 pub mod util;
-mod ffi;
+pub mod value;

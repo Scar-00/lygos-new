@@ -1,4 +1,4 @@
-struct T {
+/*struct T {
     data: *u8;
     len: u64;
 }
@@ -224,4 +224,8 @@ fn main() -> i32 {
     format_args$("test");
     //print_("test1");
     return 10;
+}*/
+
+fn add(a: i32, b: i32) -> i32 {
+    return a + b;
 }

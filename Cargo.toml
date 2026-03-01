@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [workspace]
-members = ["lygos-lexer", "lygos-parser", "lygos-ast", "lygos-token", "lygos-llvm", "lygos-logging", "lygos-macros", "lygos-util"]
+members = ["lygos-lexer", "lygos-parser", "lygos-ast", "lygos-token", "lygos-logging", "lygos-macros", "lygos-util", "lygos-llvm"]
 
 [dependencies]
 lygos-lexer = { path = "./lygos-lexer/" }
@@ -15,7 +15,9 @@ lygos-macros = { path = "./lygos-macros/" }
 lygos-ast = { path = "./lygos-ast/" }
 lygos-llvm = { path = "./lygos-llvm/" }
 lygos-util = { path = "./lygos-util/" }
-lazy_static.workspace = true
+lazy_static = { workspace = true }
+#inkwell = { workspace = true }
+libffi = { workspace = true }
 color-eyre = "0.6.5"
 
 [workspace.dependencies]
@@ -23,3 +25,5 @@ thiserror = "2.0.12"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 lazy_static = "1.5.0"
+libffi = "5.1.0"
+#inkwell = { version = "0.8.0", default-features = false, features = ["llvm20-1-prefer-dynamic", "target-x86"] }

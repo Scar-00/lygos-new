@@ -8,3 +8,4 @@ cc = { version = "1.0" }
 
 [dependencies]
 libc = "0.2"
+libffi = { workspace = true }
