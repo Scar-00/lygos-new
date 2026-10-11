@@ -3,6 +3,8 @@ use std::env::VarError;
 use crate::{
     context::Context,
     ffi::{self, to_cstr},
+    module::Module,
+    util::DataLayoutRef,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -70,6 +72,10 @@ impl TypeRef {
 
     pub fn get_contained_type(&self, index: usize) -> Self {
         Self(unsafe { ffi::TypeGetContainedType(self.0, index) })
+    }
+
+    pub fn get_offset_of(&self, index: usize, layout: DataLayoutRef) -> usize {
+        unsafe { ffi::TypeGetElementOffset(self.0, layout.0, index) }
     }
 
     pub fn matches(&self, other: TypeRef) -> bool {

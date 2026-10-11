@@ -4,7 +4,7 @@ use crate::{
     context::Context,
     ffi::{self, to_cstr},
     util::{DataLayoutRef, TargetMachineRef},
-    value::Function,
+    value::{Function, ValueRef},
 };
 
 pub struct Module<'ctx> {
@@ -40,6 +40,14 @@ impl<'ctx> Module<'ctx> {
 
     pub fn print(&self) -> String {
         unsafe { ffi::PrintModule(self.ptr) }.into()
+    }
+
+    /// Create a string constant even when there is no current function block.
+    pub fn create_global_string(&self, value: &str) -> ValueRef {
+        let bytes = value.as_bytes();
+        ValueRef::new(unsafe {
+            ffi::ModuleCreateGlobalStringBytes(self.ptr, bytes.as_ptr(), bytes.len())
+        })
     }
 
     pub fn set_data_layout(&mut self, machine: &TargetMachineRef) {

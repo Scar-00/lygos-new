@@ -1,8 +1,6 @@
-use lygos_macros::Visitable;
-
 use crate::AST;
 
-#[derive(Debug, Visitable)]
+#[derive(Debug, Clone)]
 pub enum MemberExpr {
     Member {
         obj: Box<AST>,
@@ -13,10 +11,10 @@ pub enum MemberExpr {
         obj: Box<AST>,
         use_index: bool,
         index: usize,
-    }
+    },
 }
 
-#[derive(Debug, Visitable)]
+#[derive(Debug, Clone)]
 pub struct ResolutionExpr {
     pub obj: Box<AST>,
     pub member: Box<AST>,
@@ -24,11 +22,11 @@ pub struct ResolutionExpr {
 
 impl ResolutionExpr {
     pub fn new(obj: Box<AST>, member: Box<AST>) -> Self {
-        Self{ obj, member }
+        Self { obj, member }
     }
 }
 
-#[derive(Debug, Visitable)]
+#[derive(Debug, Clone)]
 pub struct AccessExpr {
     pub obj: Box<AST>,
     pub index: Box<AST>,
@@ -36,6 +34,6 @@ pub struct AccessExpr {
 
 impl AccessExpr {
     pub fn new(obj: Box<AST>, index: Box<AST>) -> Self {
-        Self{ obj, index }
+        Self { obj, index }
     }
 }

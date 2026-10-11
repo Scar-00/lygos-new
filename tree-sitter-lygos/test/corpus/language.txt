@@ -1,0 +1,537 @@
+==================
+Declarations and nested qualified types
+==================
+type Callback = fn(&mut i32, [i8; 3]) -> *const *mut i8;
+type Slice = [i32];
+static count: u64 = (:u64)4;
+fn external(p: *const i8);
+struct Buffer { data: *mut i8; length: u32; callback: Callback; }
+enum Mode: u8 { Read, Write, }
+trait Display { fn fmt(&self, buffer: &mut Buffer) -> i32; }
+impl Display for Buffer {
+    fn fmt(&self, buffer: &mut Buffer) -> i32 { return 0; }
+}
+impl Buffer {
+    fn new() -> Self { return Self${ .data = (:*mut i8)0, .length = (:u32)0, .callback = make() }; }
+    fn consume(mut self) {}
+}
+
+---
+
+(source_file
+  (type_alias
+    (type_identifier)
+    (function_type
+      (reference_type
+        (primitive_type))
+      (array_type
+        (primitive_type)
+        (integer_literal))
+      (pointer_type
+        (pointer_type
+          (primitive_type)))))
+  (type_alias
+    (type_identifier)
+    (slice_type
+      (primitive_type)))
+  (static_declaration
+    (identifier)
+    (primitive_type)
+    (cast_expression
+      (primitive_type)
+      (integer_literal)))
+  (function_declaration
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (pointer_type
+          (primitive_type)))))
+  (struct_declaration
+    (type_identifier)
+    (field_declaration
+      (identifier)
+      (pointer_type
+        (primitive_type)))
+    (field_declaration
+      (identifier)
+      (primitive_type))
+    (field_declaration
+      (identifier)
+      (type_identifier)))
+  (enum_declaration
+    (type_identifier)
+    (primitive_type)
+    (enum_variant
+      (identifier))
+    (enum_variant
+      (identifier)))
+  (trait_declaration
+    (type_identifier)
+    (function_declaration
+      (identifier)
+      (parameters
+        (self_parameter
+          (self))
+        (parameter
+          (identifier)
+          (reference_type
+            (type_identifier))))
+      (primitive_type)))
+  (impl_declaration
+    (type_identifier)
+    (type_identifier)
+    (function_declaration
+      (identifier)
+      (parameters
+        (self_parameter
+          (self))
+        (parameter
+          (identifier)
+          (reference_type
+            (type_identifier))))
+      (primitive_type)
+      (block
+        (return_statement
+          (integer_literal)))))
+  (impl_declaration
+    (type_identifier)
+    (function_declaration
+      (identifier)
+      (parameters)
+      (type_identifier)
+      (block
+        (return_statement
+          (struct_expression
+            (type_identifier)
+            (field_initializer
+              (identifier)
+              (cast_expression
+                (pointer_type
+                  (primitive_type))
+                (integer_literal)))
+            (field_initializer
+              (identifier)
+              (cast_expression
+                (primitive_type)
+                (integer_literal)))
+            (field_initializer
+              (identifier)
+              (call_expression
+                (identifier)
+                (arguments)))))))
+    (function_declaration
+      (identifier)
+      (parameters
+        (self_parameter
+          (self)))
+      (block))))
+
+==================
+Precedence and right associative assignment
+==================
+fn f(p: *mut i32) {
+    a = b = c + d * e;
+    *p + q;
+    (:i64)a + b;
+    !a || b && c == d < e;
+    -a * b;
+}
+
+---
+
+(source_file
+  (function_declaration
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (pointer_type
+          (primitive_type))))
+    (block
+      (expression_statement
+        (assignment_expression
+          (identifier)
+          (assignment_expression
+            (identifier)
+            (binary_expression
+              (identifier)
+              (binary_expression
+                (identifier)
+                (identifier))))))
+      (expression_statement
+        (binary_expression
+          (unary_expression
+            (identifier))
+          (identifier)))
+      (expression_statement
+        (binary_expression
+          (cast_expression
+            (primitive_type)
+            (identifier))
+          (identifier)))
+      (expression_statement
+        (binary_expression
+          (unary_expression
+            (identifier))
+          (binary_expression
+            (identifier)
+            (binary_expression
+              (identifier)
+              (binary_expression
+                (identifier)
+                (identifier))))))
+      (expression_statement
+        (binary_expression
+          (unary_expression
+            (identifier))
+          (identifier))))))
+
+==================
+Mixed postfix chains and literals
+==================
+fn f() {
+    a[0].field.method()[1]->x;
+    factory()().field;
+    Type::new()[0].method();
+    let p = Pair${ 1, 2, }.x;
+    let a = [1, 2, 3, ];
+    let zero = [];
+}
+
+---
+
+(source_file
+  (function_declaration
+    (identifier)
+    (parameters)
+    (block
+      (expression_statement
+        (field_expression
+          (index_expression
+            (call_expression
+              (field_expression
+                (field_expression
+                  (index_expression
+                    (identifier)
+                    (integer_literal))
+                  (identifier))
+                (identifier))
+              (arguments))
+            (integer_literal))
+          (identifier)))
+      (expression_statement
+        (field_expression
+          (call_expression
+            (call_expression
+              (identifier)
+              (arguments))
+            (arguments))
+          (identifier)))
+      (expression_statement
+        (call_expression
+          (field_expression
+            (index_expression
+              (call_expression
+                (scoped_expression
+                  (identifier)
+                  (identifier))
+                (arguments))
+              (integer_literal))
+            (identifier))
+          (arguments)))
+      (let_declaration
+        (identifier)
+        (field_expression
+          (struct_expression
+            (type_identifier)
+            (integer_literal)
+            (integer_literal))
+          (identifier)))
+      (let_declaration
+        (identifier)
+        (array_expression
+          (integer_literal)
+          (integer_literal)
+          (integer_literal)))
+      (let_declaration
+        (identifier)
+        (array_expression)))))
+
+==================
+Control flow and references
+==================
+fn f(condition: bool) -> i32 {
+    let mut x: i32;
+    if condition { x = 1; } else if other { return 2; } else { x = 3; }
+    let p = &mut x;
+    for let mut i: u32 = 0 in i < (:u32)10 { *p = *p + 1; if *p > 4 { break; } }
+    return *p;
+}
+
+---
+
+(source_file
+  (function_declaration
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (primitive_type)))
+    (primitive_type)
+    (block
+      (let_declaration
+        (identifier)
+        (primitive_type))
+      (if_statement
+        (identifier)
+        (block
+          (expression_statement
+            (assignment_expression
+              (identifier)
+              (integer_literal))))
+        (if_statement
+          (identifier)
+          (block
+            (return_statement
+              (integer_literal)))
+          (block
+            (expression_statement
+              (assignment_expression
+                (identifier)
+                (integer_literal))))))
+      (let_declaration
+        (identifier)
+        (unary_expression
+          (identifier)))
+      (for_statement
+        (let_declaration
+          (identifier)
+          (primitive_type)
+          (integer_literal))
+        (binary_expression
+          (identifier)
+          (cast_expression
+            (primitive_type)
+            (integer_literal)))
+        (block
+          (expression_statement
+            (assignment_expression
+              (unary_expression
+                (identifier))
+              (binary_expression
+                (unary_expression
+                  (identifier))
+                (integer_literal))))
+          (if_statement
+            (binary_expression
+              (unary_expression
+                (identifier))
+              (integer_literal))
+            (block
+              (break_statement)))))
+      (return_statement
+        (unary_expression
+          (identifier))))))
+
+==================
+Macro definitions and balanced token arguments
+==================
+macro println {
+    () -> { print_("\n"); }
+    (fmt: $, args: $[]) -> { print_fmt_(format_args$($fmt, $args)); }
+}
+fn f() {
+    sizeof$(i32);
+    format_args$("{} {:?}", foo(1, 2), [Pair${ .x = 3 }, 4],);
+    println$("{escaped}");
+}
+
+---
+
+(source_file
+  (macro_definition
+    (identifier)
+    (macro_arm
+      (macro_parameters)
+      (token_tree
+        (identifier)
+        (token_tree
+          (string_literal
+            (escape_sequence)))))
+    (macro_arm
+      (macro_parameters
+        (macro_parameter
+          (identifier))
+        (macro_parameter
+          (identifier)))
+      (token_tree
+        (identifier)
+        (token_tree
+          (identifier)
+          (token_tree
+            (macro_variable
+              (identifier))
+            (macro_variable
+              (identifier)))))))
+  (function_declaration
+    (identifier)
+    (parameters)
+    (block
+      (expression_statement
+        (macro_invocation
+          (identifier)
+          (macro_arguments
+            (primitive_type))))
+      (expression_statement
+        (macro_invocation
+          (identifier)
+          (macro_arguments
+            (string_literal)
+            (identifier)
+            (token_tree
+              (integer_literal)
+              (integer_literal))
+            (token_tree
+              (identifier)
+              (token_tree
+                (identifier)
+                (integer_literal))
+              (integer_literal)))))
+      (expression_statement
+        (macro_invocation
+          (identifier)
+          (macro_arguments
+            (string_literal)))))))
+
+==================
+Nested and adjacent comments, escapes, Unicode names
+==================
+/* outer /* nested */ still outer */
+fn café(число: i32) -> i32 {
+    /* one *//* two */ let _value = "a\"b\\c\n";
+    let quote = '\'';
+    let number = 1.25;
+    return число; // comment before EOF
+}
+// trailing comment
+
+---
+
+(source_file
+  (block_comment)
+  (function_declaration
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (primitive_type)))
+    (primitive_type)
+    (block
+      (block_comment)
+      (block_comment)
+      (let_declaration
+        (identifier)
+        (string_literal
+          (escape_sequence)
+          (escape_sequence)
+          (escape_sequence)))
+      (let_declaration
+        (identifier)
+        (char_literal
+          (escape_sequence)))
+      (let_declaration
+        (identifier)
+        (float_literal))
+      (return_statement
+        (identifier))
+      (line_comment)))
+  (line_comment))
+
+==================
+Repeat array initializers
+==================
+fn f() { let a = [0; 16]; let b = [[1; 2]; 3]; let c = [7; 0]; }
+
+---
+
+(source_file
+  (function_declaration
+    (identifier)
+    (parameters)
+    (block
+      (let_declaration
+        (identifier)
+        (array_expression
+          (integer_literal)
+          (integer_literal)))
+      (let_declaration
+        (identifier)
+        (array_expression
+          (array_expression
+            (integer_literal)
+            (integer_literal))
+          (integer_literal)))
+      (let_declaration
+        (identifier)
+        (array_expression
+          (integer_literal)
+          (integer_literal))))))
+
+==================
+Compile-time functions and declaration attributes
+==================
+macro fn count(item: Ast) { ast::emit(ast::parse_item("struct Generated {}")); }
+#[rename("Renamed")]
+#[derive(count, Other)]
+struct Original { value:i32; }
+fn f() { let value = square$(3); }
+
+---
+
+(source_file
+  (comptime_function
+    (function_declaration
+      (identifier)
+      (parameters
+        (parameter
+          (identifier)
+          (type_identifier)))
+      (block
+        (expression_statement
+          (call_expression
+            (scoped_expression
+              (identifier)
+              (identifier))
+            (arguments
+              (call_expression
+                (scoped_expression
+                  (identifier)
+                  (identifier))
+                (arguments
+                  (string_literal)))))))))
+  (attributed_declaration
+    (attribute
+      (identifier)
+      (macro_arguments
+        (string_literal)))
+    (attribute
+      (identifier)
+      (macro_arguments
+        (identifier)
+        (identifier)))
+    (struct_declaration
+      (type_identifier)
+      (field_declaration
+        (identifier)
+        (primitive_type))))
+  (function_declaration
+    (identifier)
+    (parameters)
+    (block
+      (let_declaration
+        (identifier)
+        (macro_invocation
+          (identifier)
+          (macro_arguments
+            (integer_literal)))))))

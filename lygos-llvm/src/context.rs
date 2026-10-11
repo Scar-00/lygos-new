@@ -48,6 +48,7 @@ impl Context {
     }
 
     pub fn init_all() {
-        unsafe { ffi::InitAll() };
+        static INIT: std::sync::Once = std::sync::Once::new();
+        INIT.call_once(|| unsafe { ffi::InitAll() });
     }
 }

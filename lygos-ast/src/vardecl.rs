@@ -1,9 +1,8 @@
-use lygos_macros::Visitable;
 use lygos_token::Tagged;
 
-use crate::{types::Type, AST};
+use crate::{AST, types::Type};
 
-#[derive(Debug, Visitable)]
+#[derive(Debug, Clone)]
 pub struct VarDecl {
     pub id: Tagged<String>,
     pub cnst: bool,
@@ -13,6 +12,11 @@ pub struct VarDecl {
 
 impl VarDecl {
     pub fn new(id: Tagged<String>, cnst: bool, typ: Option<Type>, value: Option<Box<AST>>) -> Self {
-        Self{ id, cnst, typ, value }
+        Self {
+            id,
+            cnst,
+            typ,
+            value,
+        }
     }
 }

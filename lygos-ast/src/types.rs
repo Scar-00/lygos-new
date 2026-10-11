@@ -33,7 +33,10 @@ pub struct Path {
 
 impl Path {
     pub fn new(loc: Location, path: impl ToString) -> Path {
-        Self{ loc, path: path.to_string() }
+        Self {
+            loc,
+            path: path.to_string(),
+        }
     }
 }
 
@@ -47,7 +50,12 @@ pub struct Pointer {
 
 impl Pointer {
     pub fn new(loc: Location, typ: Box<Type>, is_ref: bool, is_mut: bool) -> Pointer {
-        Self{ loc, typ, is_ref, is_mut }
+        Self {
+            loc,
+            typ,
+            is_ref,
+            is_mut,
+        }
     }
 
     pub fn set_type(&mut self, typ: Type) {
@@ -68,7 +76,11 @@ pub struct Array {
 
 impl Array {
     pub fn new(loc: Location, typ: Type, elems: usize) -> Array {
-        Self{ loc, typ: Box::new(typ), elems }
+        Self {
+            loc,
+            typ: Box::new(typ),
+            elems,
+        }
     }
 }
 
@@ -81,7 +93,11 @@ pub struct FuncPtr {
 
 impl FuncPtr {
     pub fn new(loc: Location, params: Vec<Type>, ret_type: Type) -> FuncPtr {
-        Self{ loc, params, ret_type: Box::new(ret_type) }
+        Self {
+            loc,
+            params,
+            ret_type: Box::new(ret_type),
+        }
     }
 }
 
@@ -93,7 +109,10 @@ pub struct ArraySlice {
 
 impl ArraySlice {
     pub fn new(loc: Location, typ: Type) -> ArraySlice {
-        Self{ loc, typ: Box::new(typ) }
+        Self {
+            loc,
+            typ: Box::new(typ),
+        }
     }
 }
 
@@ -136,7 +155,7 @@ impl Type {
             Type::Pointer(ptr) => ptr.typ.get_name(),
             Type::Array(arr) => arr.typ.get_name(),
             Type::Slice(slice) => slice.typ.get_name(),
-            Type::FuncPtr(_) => todo!(),
+            Type::FuncPtr(_) => self.get_full_name(),
         }
     }
 
@@ -144,54 +163,103 @@ impl Type {
         match self {
             Type::Path(p) => p.path.clone(),
             Type::Pointer(ptr) => {
-                let prefix = if ptr.is_ref { "&" } else { "*" }.to_owned();
-                prefix + &ptr.typ.get_full_name()
-            },
+                let prefix = if ptr.is_ref {
+                    if ptr.is_mut { "&mut " } else { "&" }
+                } else if ptr.is_mut {
+                    "*mut "
+                } else {
+                    "*const "
+                };
+                prefix.to_owned() + &ptr.typ.get_full_name()
+            }
             Type::Array(arr) => {
                 format!("[{};{}]", arr.typ.get_full_name(), arr.elems)
-            },
-            Type::Slice(slice) => {
-                "[".to_owned() + &slice.typ.get_full_name() + "]"
-            },
+            }
+            Type::Slice(slice) => "[".to_owned() + &slice.typ.get_full_name() + "]",
             Type::FuncPtr(func) => {
-                let mut string = "fn (".to_string();
-                func.params.iter().for_each(|param| {
-                    string += &(param.get_full_name() + (", "));
-                });
-                string += &format!(") -> {}", func.ret_type.get_full_name());
-                string
+                format!(
+                    "fn ({}) -> {}",
+                    func.params
+                        .iter()
+                        .map(Type::get_full_name)
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    func.ret_type.get_full_name()
+                )
             }
         }
     }
 
+    /// Structural equality. Source locations are not part of a type's identity.
     pub fn matches(&self, rhs: &Type) -> bool {
         match (self, rhs) {
+            (Type::Path(lhs), Type::Path(rhs)) => lhs.path == rhs.path,
             (Type::Pointer(lhs), Type::Pointer(rhs)) => {
-                lhs.typ.matches(&rhs.typ)
+                lhs.is_ref == rhs.is_ref && lhs.is_mut == rhs.is_mut && lhs.typ.matches(&rhs.typ)
             }
-            _ => self.get_full_name() == rhs.get_full_name(),
+            (Type::Array(lhs), Type::Array(rhs)) => {
+                lhs.elems == rhs.elems && lhs.typ.matches(&rhs.typ)
+            }
+            (Type::Slice(lhs), Type::Slice(rhs)) => lhs.typ.matches(&rhs.typ),
+            (Type::FuncPtr(lhs), Type::FuncPtr(rhs)) => {
+                lhs.params.len() == rhs.params.len()
+                    && lhs
+                        .params
+                        .iter()
+                        .zip(&rhs.params)
+                        .all(|(lhs, rhs)| lhs.matches(rhs))
+                    && lhs.ret_type.matches(&rhs.ret_type)
+            }
+            _ => false,
         }
     }
 
+    /// Parse a path with optional pointer/reference prefixes. Compound types use
+    /// the language parser; unsupported or incomplete spellings return None.
     pub fn from_string(src: Tagged<String>) -> Option<Type> {
-        let mut s = src.inner().as_str();
+        let s = src.inner().trim();
         let loc = src.loc().clone();
         if s.starts_with('*') || s.starts_with('&') {
             let is_ref = s.starts_with('&');
-            s = &s[..1];
-            let is_mut = if s.starts_with("mut") {
-                s = &s[..3];
-                true
-            }else {
-                false
-            };
-
-            if let Some(ty) = Self::from_string(Tagged::new(loc.clone(), s.to_string())) {
-                return Some(Type::Pointer(Pointer::new(loc.clone(), Box::new(ty), is_ref, is_mut)));
+            let mut rest = s[1..].trim_start();
+            if rest == "mut" {
+                return None;
             }
+            let is_mut = rest
+                .strip_prefix("mut")
+                .is_some_and(|suffix| suffix.starts_with(char::is_whitespace));
+            let is_const = rest
+                .strip_prefix("const")
+                .is_some_and(|suffix| suffix.starts_with(char::is_whitespace));
+            if !is_ref && !is_mut && !is_const {
+                return None;
+            }
+            if is_ref && is_const {
+                return None;
+            }
+            if is_mut {
+                rest = rest[3..].trim_start();
+            }
+            if is_const {
+                rest = rest[5..].trim_start();
+            }
+            let typ = Self::from_string(Tagged::new(loc.clone(), rest.to_owned()))?;
+            return Some(Type::Pointer(Pointer::new(
+                loc,
+                Box::new(typ),
+                is_ref,
+                is_mut,
+            )));
+        }
+        let mut chars = s.chars();
+        if !chars
+            .next()
+            .is_some_and(|ch| ch.is_alphabetic() || ch == '_')
+            || !chars.all(|ch| ch.is_alphanumeric() || ch == '_')
+        {
             return None;
         }
-        Some(Type::Path(Path::new(loc.clone(), s.to_owned())))
+        Some(Type::Path(Path::new(loc, s)))
     }
 
     pub fn get_base(&self) -> Option<&Type> {

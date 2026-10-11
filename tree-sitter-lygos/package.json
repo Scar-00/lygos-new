@@ -1,0 +1,23 @@
+{
+  "name": "tree-sitter-lygos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tree-sitter grammar for the Lygos language",
+  "scripts": {
+    "generate": "tree-sitter generate --abi 14",
+    "test": "tree-sitter test",
+    "test:nvim": "nvim -n --headless -c \"luafile test/nvim.lua\""
+  },
+  "tree-sitter": [
+    {
+      "scope": "source.lygos",
+      "file-types": [
+        "ly"
+      ],
+      "highlights": "queries/highlights.scm"
+    }
+  ],
+  "devDependencies": {
+    "tree-sitter-cli": "0.27.1"
+  }
+}

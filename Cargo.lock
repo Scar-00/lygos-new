@@ -269,10 +269,12 @@ dependencies = [
 name = "lygos"
 version = "0.1.0"
 dependencies = [
+ "cc",
  "color-eyre",
  "lazy_static",
  "libffi",
  "lygos-ast",
+ "lygos-codegen",
  "lygos-lexer",
  "lygos-llvm",
  "lygos-logging",
@@ -288,11 +290,16 @@ version = "0.1.0"
 dependencies = [
  "lazy_static",
  "lygos-lexer",
- "lygos-llvm",
  "lygos-logging",
- "lygos-macros",
  "lygos-token",
- "lygos-util",
+]
+
+[[package]]
+name = "lygos-codegen"
+version = "0.1.0"
+dependencies = [
+ "lygos-ast",
+ "lygos-llvm",
 ]
 
 [[package]]
@@ -334,6 +341,9 @@ name = "lygos-parser"
 version = "0.1.0"
 dependencies = [
  "lygos-ast",
+ "lygos-codegen",
+ "lygos-lexer",
+ "lygos-llvm",
  "lygos-logging",
  "lygos-token",
  "lygos-util",

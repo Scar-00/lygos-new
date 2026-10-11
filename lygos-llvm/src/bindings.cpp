@@ -27,6 +27,8 @@
 #include <llvm/Transforms/Utils.h>
 #include <llvm/Passes/PassBuilder.h>
 #include <llvm/Bitcode/BitcodeWriter.h>
+#include <llvm/Bitcode/BitcodeReader.h>
+#include <llvm/ExecutionEngine/Orc/Mangling.h>
 #include <llvm/Bitstream/BitstreamWriter.h>
 #include <llvm/IR/Mangler.h>
 #include <llvm/IR/LegacyPassManager.h>
@@ -89,6 +91,7 @@ struct JitEngine {
     }
 
     std::unique_ptr<llvm::orc::LLJIT> jit;
+    std::string error;
 };
 
 llvm::Instruction::CastOps convert_ops(ExternCastOps op) {
@@ -184,26 +187,73 @@ extern "C" {
             return std::make_unique<llvm::SectionMemoryManager>();
         });*/
         auto jit_res = llvm::orc::LLJITBuilder().create();
-        std::unique_ptr<llvm::orc::LLJIT> jit = std::move(jit_res.get());
+        if (!jit_res) {
+            llvm::consumeError(jit_res.takeError());
+            return nullptr;
+        }
+        std::unique_ptr<llvm::orc::LLJIT> jit = std::move(*jit_res);
         return new JitEngine(std::move(jit));
     }
 
-    void JitEngineAddModule(JitEngine *engine, llvm::Module *mod) {
+    void DestroyJitEngine(JitEngine *engine) { delete engine; }
+
+    FFIString JitEngineError(JitEngine *engine) {
+        return FFIString_Create(engine->error);
+    }
+
+    void JitEngineConfigureModule(JitEngine *engine, llvm::Module *mod) {
+        mod->setDataLayout(engine->jit->getDataLayout());
+        mod->setTargetTriple(engine->jit->getTargetTriple().str());
+    }
+
+    bool JitEngineDefineSymbol(JitEngine *engine, const char *name, void *address) {
+        engine->error.clear();
+        llvm::orc::MangleAndInterner mangle(engine->jit->getExecutionSession(), engine->jit->getDataLayout());
+        llvm::orc::SymbolMap symbols;
+        symbols[mangle(name)] = llvm::orc::ExecutorSymbolDef(
+            llvm::orc::ExecutorAddr::fromPtr(address), llvm::JITSymbolFlags::Exported | llvm::JITSymbolFlags::Callable);
+        if (auto err = engine->jit->getMainJITDylib().define(llvm::orc::absoluteSymbols(std::move(symbols)))) {
+            engine->error = llvm::toString(std::move(err));
+            return false;
+        }
+        return true;
+    }
+
+    bool JitEngineAddModule(JitEngine *engine, llvm::Module *mod) {
+        engine->error.clear();
         std::unique_ptr<llvm::Module> unique_mod(mod);
-        llvm::orc::ThreadSafeModule tsm(std::move(unique_mod), std::make_unique<llvm::LLVMContext>());
-        auto err = engine->jit->addIRModule(std::move(tsm));
+        // The input belongs to a caller-owned context. Copy it into the context
+        // owned by ORC before the caller can destroy that context.
+        llvm::SmallVector<char, 0> bytes;
+        llvm::raw_svector_ostream stream(bytes);
+        llvm::WriteBitcodeToFile(*unique_mod, stream);
+        auto context = std::make_unique<llvm::LLVMContext>();
+        auto buffer = llvm::MemoryBuffer::getMemBufferCopy(llvm::StringRef(bytes.data(), bytes.size()));
+        auto parsed = llvm::parseBitcodeFile(buffer->getMemBufferRef(), *context);
+        if (!parsed) {
+            engine->error = llvm::toString(parsed.takeError());
+            return false;
+        }
+        llvm::orc::ThreadSafeModule tsm(std::move(*parsed), std::move(context));
+        if (auto err = engine->jit->addIRModule(std::move(tsm))) {
+            engine->error = llvm::toString(std::move(err));
+            return false;
+        }
+        return true;
     }
 
     void *JitEngineLookup(JitEngine *engine, const char *name) {
+        engine->error.clear();
         auto res = engine->jit->lookup(name);
         if(!res) {
+            engine->error = llvm::toString(res.takeError());
             return NULL;
         }
         return (void*)res->getValue();
     }
 
     size_t DataLayoutGetTypeAllocSizeInBits(llvm::DataLayout *dl, llvm::Type *ty) {
-        return dl->getTypeSizeInBits(ty).getFixedValue();
+        return dl->getTypeAllocSizeInBits(ty).getFixedValue();
     }
 
     llvm::IRBuilder<> *CreateIRBuilder(llvm::LLVMContext *ctx) {
@@ -243,6 +293,13 @@ extern "C" {
 
     llvm::Value *BuilderCreateAlloca(llvm::IRBuilder<> *builder, llvm::Type *ty, llvm::Value *array_size) {
         return builder->CreateAlloca(ty, array_size);
+    }
+
+    llvm::Value *BuilderCreateEntryAlloca(llvm::IRBuilder<> *builder, llvm::Type *ty) {
+        auto *block = builder->GetInsertBlock();
+        auto &entry = block->getParent()->getEntryBlock();
+        llvm::IRBuilder<> allocations(&entry, entry.begin());
+        return allocations.CreateAlloca(ty);
     }
 
     llvm::Value *BuilderCreateRet(llvm::IRBuilder<> *builder, llvm::Value *value) {
@@ -359,6 +416,48 @@ extern "C" {
         return builder->CreateICmpSGE(lhs, rhs);
     }
 
+    llvm::Value *BuilderCreateTypedBinary(llvm::IRBuilder<> *builder, llvm::Value *lhs, llvm::Value *rhs, uint32_t op, bool is_unsigned) {
+        if (lhs->getType()->isFloatingPointTy()) {
+            switch (op) {
+                case 0: return builder->CreateFAdd(lhs, rhs);
+                case 1: return builder->CreateFSub(lhs, rhs);
+                case 2: return builder->CreateFMul(lhs, rhs);
+                case 3: return builder->CreateFDiv(lhs, rhs);
+                case 4: return builder->CreateFRem(lhs, rhs);
+                case 5: return builder->CreateFCmpOEQ(lhs, rhs);
+                case 6: return builder->CreateFCmpUNE(lhs, rhs);
+                case 7: return builder->CreateFCmpOLT(lhs, rhs);
+                case 8: return builder->CreateFCmpOLE(lhs, rhs);
+                case 9: return builder->CreateFCmpOGT(lhs, rhs);
+                case 10: return builder->CreateFCmpOGE(lhs, rhs);
+            }
+        } else {
+            switch (op) {
+                case 0: return builder->CreateAdd(lhs, rhs);
+                case 1: return builder->CreateSub(lhs, rhs);
+                case 2: return builder->CreateMul(lhs, rhs);
+                case 3: return is_unsigned ? builder->CreateUDiv(lhs, rhs) : builder->CreateSDiv(lhs, rhs);
+                case 4: return is_unsigned ? builder->CreateURem(lhs, rhs) : builder->CreateSRem(lhs, rhs);
+                case 5: return builder->CreateICmpEQ(lhs, rhs);
+                case 6: return builder->CreateICmpNE(lhs, rhs);
+                case 7: return is_unsigned ? builder->CreateICmpULT(lhs, rhs) : builder->CreateICmpSLT(lhs, rhs);
+                case 8: return is_unsigned ? builder->CreateICmpULE(lhs, rhs) : builder->CreateICmpSLE(lhs, rhs);
+                case 9: return is_unsigned ? builder->CreateICmpUGT(lhs, rhs) : builder->CreateICmpSGT(lhs, rhs);
+                case 10: return is_unsigned ? builder->CreateICmpUGE(lhs, rhs) : builder->CreateICmpSGE(lhs, rhs);
+            }
+        }
+        llvm_unreachable("unknown binary operator");
+    }
+
+    llvm::Value *BuilderCreateGlobalStringBytes(llvm::IRBuilder<> *builder, const uint8_t *data, size_t len) {
+        return builder->CreateGlobalString(llvm::StringRef(reinterpret_cast<const char *>(data), len));
+    }
+
+    llvm::Value *ModuleCreateGlobalStringBytes(llvm::Module *module, const uint8_t *data, size_t len) {
+        llvm::IRBuilder<> builder(module->getContext());
+        return builder.CreateGlobalString(llvm::StringRef(reinterpret_cast<const char *>(data), len), "", 0, module);
+    }
+
     llvm::Value *BuilderCreateGlobalStringPointer(llvm::IRBuilder<> *builder, const char *string) {
         return builder->CreateGlobalString(string);
     }
@@ -413,6 +512,14 @@ extern "C" {
 
     size_t TypeGetNumContainedTypes(llvm::Type *ty) {
         return ty->getNumContainedTypes();
+    }
+
+    size_t TypeGetElementOffset(llvm::Type *ty, llvm::DataLayout *layout, size_t idx) {
+        if(!ty->isStructTy()) {
+            return 0;
+        }
+        auto struct_layout = layout->getStructLayout((llvm::StructType*)ty);
+        return struct_layout->getElementOffset(idx);
     }
 
     bool TypeMatches(llvm::Type *lhs, llvm::Type *rhs) {

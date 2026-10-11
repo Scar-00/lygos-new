@@ -1,16 +1,8 @@
-use std::{cell::RefCell, fs, path::Path, ops::Range};
-
-use ariadne::{sources, CharSet, Color, Config, Label, Report, ReportKind, Source};
+use ariadne::{CharSet, Color, Config, Label, Report, ReportKind, sources};
 use lygos_token::Location;
+use std::{collections::HashMap, fs, io::IsTerminal, ops::Range, path::Path};
 
-thread_local! {
-    static LOGGER: RefCell<Logger> = {
-        RefCell::new(Logger::new())
-    }
-}
-
-
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ErrorLabel {
     loc: Location,
     msg: String,
@@ -18,141 +10,177 @@ pub struct ErrorLabel {
 
 impl ErrorLabel {
     pub fn new(path: impl AsRef<Path>, range: Range<usize>, msg: impl ToString) -> Self {
-        Self{ loc: Location::new(path.as_ref().to_path_buf(), range), msg: msg.to_string() }
+        Self {
+            loc: Location::new(path.as_ref().to_path_buf(), range),
+            msg: msg.to_string(),
+        }
     }
-
     pub fn from(loc: &Location, msg: impl ToString) -> Self {
-        Self{ loc: loc.clone(), msg: msg.to_string() }
+        Self {
+            loc: loc.clone(),
+            msg: msg.to_string(),
+        }
     }
 }
 
 impl<'a> From<&'a ErrorLabel> for Label<(String, Range<usize>)> {
     fn from(value: &'a ErrorLabel) -> Self {
-        Label::new((value.loc.file.display().to_string(), value.loc.range.clone()))
-            .with_message(value.msg.clone())
-            .with_color(Color::Red)
+        Label::new((
+            value.loc.file.display().to_string(),
+            value.loc.range.clone(),
+        ))
+        .with_message(&value.msg)
+        .with_color(Color::Red)
     }
 }
 
-pub struct Logger {
-    config: Config,
-}
+pub struct Logger;
 
 impl Logger {
-    fn new() -> Self {
-        Self{
-            config: Config::default()
-                .with_char_set(CharSet::Unicode)
-                .with_color(true)
-                .with_multiline_arrows(false),
-        }
-    }
-}
-
-impl Logger {
-    fn load_file(path: impl AsRef<Path>) -> String {
-        match fs::read_to_string(&path) {
-            Ok(content) => {
+    /// Render a diagnostic without exiting, panicking, or depending on a terminal.
+    /// Missing source files fall back to a textual report preserving every label.
+    pub fn render_diagnostic(
+        message: &str,
+        labels: &[ErrorLabel],
+        help: Option<&str>,
+        note: Option<&str>,
+        color: bool,
+    ) -> String {
+        let fallback = || {
+            let mut report = format!("Error: {message}\n");
+            for label in labels {
+                report += &format!(
+                    "  {}:{}: {}\n",
+                    label.loc.file.display(),
+                    label.loc.range.start,
+                    label.msg
+                );
+            }
+            if let Some(note) = note {
+                report += &format!("Note: {note}\n");
+            }
+            if let Some(help) = help {
+                report += &format!("Help: {help}\n");
+            }
+            report
+        };
+        let mut source_map = HashMap::new();
+        let mut visible = Vec::new();
+        for (index, label) in labels.iter().enumerate() {
+            let path = label.loc.file.display().to_string();
+            if path.is_empty() || path == "internal" {
+                continue;
+            }
+            let content = if let Some(content) = source_map.get(&path) {
                 content
-            }
-            Err(e) => {
-                panic!("failed to load source file({}): {e}", path.as_ref().display())
-            }
+            } else {
+                let Ok(content) = fs::read_to_string(&label.loc.file) else {
+                    return fallback();
+                };
+                source_map.entry(path.clone()).or_insert(content)
+            };
+            let length = content.chars().count();
+            let start = label.loc.range.start.min(length);
+            let end = label.loc.range.end.max(start).min(length);
+            visible.push((index, path, start..end, label.msg.clone()));
         }
+        let Some((_, path, range, _)) = visible.first() else {
+            return fallback();
+        };
+        let mut builder = Report::build(ReportKind::Error, (path.clone(), range.clone()))
+            .with_message(message)
+            .with_config(
+                Config::default()
+                    .with_char_set(CharSet::Unicode)
+                    .with_color(color)
+                    .with_multiline_arrows(false),
+            );
+        for (index, path, range, message) in visible {
+            builder.add_label(
+                Label::new((path, range))
+                    .with_message(message)
+                    .with_color(if index == 0 {
+                        Color::Red
+                    } else {
+                        Color::Yellow
+                    })
+                    .with_order(index as i32),
+            );
+        }
+        if let Some(help) = help {
+            builder = builder.with_help(help);
+        }
+        if let Some(note) = note {
+            builder = builder.with_note(note);
+        }
+        let mut output = Vec::new();
+        if builder
+            .finish()
+            .write(sources(source_map), &mut output)
+            .is_err()
+        {
+            return fallback();
+        }
+        String::from_utf8(output).unwrap_or_else(|_| fallback())
+    }
+
+    pub fn emit_diagnostic(
+        message: impl AsRef<str>,
+        labels: &[ErrorLabel],
+        help: Option<&str>,
+        note: Option<&str>,
+    ) {
+        let color = std::io::stderr().is_terminal() && std::env::var_os("NO_COLOR").is_none();
+        let report = Self::render_diagnostic(message.as_ref(), labels, help, note, color);
+        use std::io::Write;
+        let _ = std::io::stderr().write_all(report.as_bytes());
+    }
+
+    pub fn diagnostic(
+        message: impl AsRef<str>,
+        labels: &[ErrorLabel],
+        help: Option<&str>,
+        note: Option<&str>,
+    ) -> ! {
+        Self::emit_diagnostic(message, labels, help, note);
+        std::process::exit(1);
     }
 
     pub fn token_expected(loc: &Location, msg: impl AsRef<str>, info: impl AsRef<str>) -> ! {
-        let path = &loc.file.display().to_string();
-        Report::build(ReportKind::Error, (path, loc.range.clone()))
-            .with_message(msg.as_ref())
-            .with_label(
-                Label::new((path, loc.range.clone()))
-                .with_message(info.as_ref())
-                .with_color(Color::Red)
-            )
-            .with_config(LOGGER.with_borrow(|logger| logger.config))
-            .finish()
-            .eprint((path, Source::from(Self::load_file(&loc.file))))
-            .unwrap();
-        std::process::exit(1);
+        Self::diagnostic(msg, &[ErrorLabel::from(loc, info.as_ref())], None, None)
     }
-
-    pub fn token_expected_help(loc: &Location, msg: impl AsRef<str>, info: impl AsRef<str>, help: impl AsRef<str>) -> ! {
-        let path = &loc.file.display().to_string();
-        Report::build(ReportKind::Error, (path, loc.range.clone()))
-            .with_message(msg.as_ref())
-            .with_label(
-                Label::new((path, loc.range.clone()))
-                .with_message(info.as_ref())
-                .with_color(Color::Red)
-            )
-            .with_help(help.as_ref())
-            .with_config(LOGGER.with_borrow(|logger| logger.config))
-            .finish()
-            .eprint((path, Source::from(Self::load_file(&loc.file))))
-            .unwrap();
-        std::process::exit(1);
+    pub fn token_expected_help(
+        loc: &Location,
+        msg: impl AsRef<str>,
+        info: impl AsRef<str>,
+        help: impl AsRef<str>,
+    ) -> ! {
+        Self::diagnostic(
+            msg,
+            &[ErrorLabel::from(loc, info.as_ref())],
+            Some(help.as_ref()),
+            None,
+        )
     }
-
     pub fn error_msg(path: impl AsRef<Path>, msg: impl AsRef<str>) -> ! {
-        let path = &path.as_ref().display().to_string();
-        Report::build(ReportKind::Error, (path, 0..=0))
-            .with_message(msg.as_ref())
-            .with_config(LOGGER.with_borrow(|logger| logger.config))
-            .finish()
-            .eprint((path, Source::from(Self::load_file(path))))
-            .unwrap();
-
-        std::process::exit(1);
+        Self::diagnostic(
+            msg.as_ref(),
+            &[ErrorLabel::new(path, 0..0, msg.as_ref())],
+            None,
+            None,
+        )
     }
-
     pub fn error_msg_label(msg: impl AsRef<str>, label: ErrorLabel) -> ! {
-        Report::build(ReportKind::Error, ("".to_string(), 0..0))
-            .with_message(msg.as_ref())
-            .with_label(Label::from(&label))
-            .with_config(LOGGER.with_borrow(|logger| logger.config))
-            .finish()
-            .eprint((
-                label.loc.file.to_string_lossy().to_string(),
-                Source::from(Self::load_file(label.loc.file))
-            ))
-            .unwrap();
-
-        std::process::exit(1);
+        Self::diagnostic(msg, &[label], None, None)
     }
-
-    pub fn error_msg_label_info(msg: impl AsRef<str>, label: ErrorLabel, info: impl AsRef<str>) -> ! {
-        Report::build(ReportKind::Error, ("".to_string(), 0..0))
-            .with_message(msg.as_ref())
-            .with_label(Label::from(&label))
-            .with_note(info.as_ref())
-            .with_config(LOGGER.with_borrow(|logger| logger.config))
-            .finish()
-            .eprint((
-                label.loc.file.to_string_lossy().to_string(),
-                Source::from(Self::load_file(label.loc.file))
-            ))
-            .unwrap();
-
-        std::process::exit(1);
+    pub fn error_msg_label_info(
+        msg: impl AsRef<str>,
+        label: ErrorLabel,
+        info: impl AsRef<str>,
+    ) -> ! {
+        Self::diagnostic(msg, &[label], None, Some(info.as_ref()))
     }
-
     pub fn error_msg_labels(msg: impl AsRef<str>, labels: &[ErrorLabel]) -> ! {
-        let sources_vec = labels.iter().map(|label| {
-            (
-                label.loc.file.to_string_lossy().to_string(),
-                Self::load_file(&label.loc.file)
-            )
-        }).collect::<Vec<(String, String)>>();
-
-        let mut builder = Report::build(ReportKind::Error, ("".to_string(), 0..0));
-        labels.iter().for_each(|label| {
-            builder.add_label(Label::from(label));
-        });
-        builder.with_message(msg.as_ref())
-            .finish()
-            .eprint(sources(sources_vec))
-            .unwrap();
-        std::process::exit(1);
+        Self::diagnostic(msg, labels, None, None)
     }
 }

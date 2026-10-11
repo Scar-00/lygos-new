@@ -1,10 +1,9 @@
 #![allow(unused)]
 #![allow(clippy::new_without_default)]
+pub mod arena;
+pub mod type_check;
+pub mod typed;
 pub mod types;
-pub mod symbols;
-pub mod value;
-pub mod scope;
-pub use scope::*;
 
 pub mod module;
 pub use module::*;
@@ -31,14 +30,12 @@ pub use r#trait::*;
 pub mod r#macro;
 pub use r#macro::*;
 
-use lygos_macros::{Visitor, VisitorImpl};
-
 pub type Exprs = Vec<AST>;
 
-#[derive(Debug, Visitor, VisitorImpl)]
-#[visitor(ASTVisitor)]
+#[derive(Debug, Clone)]
 pub enum AST {
     Module(Module),
+    Import(Import),
     Function(Function),
     VarDecl(VarDecl),
 
@@ -65,6 +62,11 @@ pub enum AST {
     Impl(Impl),
     Trait(Trait),
     Macro(Macro),
+    ComptimeFunction(Function),
+    Attributed {
+        attributes: Vec<Attribute>,
+        declaration: Box<AST>,
+    },
     MacroCall(MacroCall),
     TypeAlias(TypeAlias),
     NumberLiteral(NumberLiteral),
@@ -75,28 +77,10 @@ pub enum AST {
     Identifier(Identifier),
 }
 
-impl AST {
-    pub fn needs_load(&self) -> bool {
-        match self {
-            AST::Identifier(_) | AST::StructLiteral(_) | AST::ArrayLiteral(_) | AST::AccessExpr(_) => true,
-            AST::MemberExpr(MemberExpr::Member { member, .. }) => {
-                !matches!(&**member, AST::CallExpr(_))
-            }
-            AST::UnaryExpr(expr) => expr.op.inner() == "!",
-            _ => false,
-        }
-    }
-
-    pub fn is_constant(&self) -> bool {
-        matches!(self, AST::NumberLiteral(_) | AST::StringLiteral(_) | AST::StaticLiteral(_))
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Block {
     pub body: Exprs,
     pub returns: bool,
-    pub scope: Scope,
 }
 
 impl Default for Block {
@@ -110,7 +94,6 @@ impl Block {
         Self {
             body: Vec::new(),
             returns: false,
-            scope: Scope::new(),
         }
     }
 
@@ -118,7 +101,6 @@ impl Block {
         Self {
             body: exprs,
             returns: false,
-            scope: Scope::new(),
         }
     }
 

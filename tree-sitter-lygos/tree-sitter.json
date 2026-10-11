@@ -1,0 +1,15 @@
+{
+  "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json",
+  "grammars": [{
+    "name": "lygos",
+    "camelcase": "Lygos",
+    "scope": "source.lygos",
+    "path": ".",
+    "file-types": ["ly"],
+    "highlights": "queries/highlights.scm"
+  }],
+  "metadata": {
+    "version": "0.1.0",
+    "description": "Tree-sitter grammar for the Lygos language"
+  }
+}

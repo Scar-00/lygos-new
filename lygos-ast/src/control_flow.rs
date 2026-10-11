@@ -1,9 +1,8 @@
-use lygos_macros::Visitable;
 use lygos_token::Location;
 
-use crate::{Block, AST};
+use crate::{AST, Block};
 
-#[derive(Debug, Visitable)]
+#[derive(Debug, Clone)]
 pub struct ReturnExpr {
     pub loc: Location,
     pub value: Option<Box<AST>>,
@@ -11,11 +10,11 @@ pub struct ReturnExpr {
 
 impl ReturnExpr {
     pub fn new(loc: Location, value: Option<Box<AST>>) -> Self {
-        Self{ loc, value }
+        Self { loc, value }
     }
 }
 
-#[derive(Debug, Visitable)]
+#[derive(Debug, Clone)]
 pub struct IfStmt {
     pub cond: Box<AST>,
     pub then_body: Block,
@@ -24,11 +23,15 @@ pub struct IfStmt {
 
 impl IfStmt {
     pub fn new(cond: Box<AST>, then_body: Block, else_body: Option<Block>) -> Self {
-        Self{ cond, then_body, else_body }
+        Self {
+            cond,
+            then_body,
+            else_body,
+        }
     }
 }
 
-#[derive(Debug, Visitable)]
+#[derive(Debug, Clone)]
 pub struct ForStmt {
     pub cond: Box<AST>,
     pub var: Box<AST>,
@@ -37,28 +40,28 @@ pub struct ForStmt {
 
 impl ForStmt {
     pub fn new(cond: Box<AST>, var: Box<AST>, body: Block) -> Self {
-        Self{ cond, var, body }
+        Self { cond, var, body }
     }
 }
 
-#[derive(Debug, Visitable)]
+#[derive(Debug, Clone)]
 pub struct BreakExpr {
     pub loc: Location,
 }
 
 impl BreakExpr {
     pub fn new(loc: Location) -> Self {
-        Self{ loc }
+        Self { loc }
     }
 }
 
-#[derive(Debug, Visitable)]
+#[derive(Debug, Clone)]
 pub struct BlockExpr {
     body: Block,
 }
 
 impl BlockExpr {
     pub fn new(body: Block) -> Self {
-        Self{ body }
+        Self { body }
     }
 }

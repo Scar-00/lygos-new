@@ -1,8 +1,7 @@
 use lygos_lexer::Lexer;
-use lygos_macros::Visitable;
 use lygos_token::{Tagged, Token};
 
-use crate::{types::Type, Block, AST};
+use crate::{AST, Block, types::Type};
 
 #[derive(Debug, Clone)]
 pub struct StructField {
@@ -10,7 +9,7 @@ pub struct StructField {
     pub typ: Type,
 }
 
-#[derive(Debug, Visitable)]
+#[derive(Debug, Clone)]
 pub struct StructDef {
     pub id: Tagged<String>,
     pub fields: Vec<StructField>,
@@ -18,25 +17,40 @@ pub struct StructDef {
 
 impl StructDef {
     pub fn new(id: Tagged<String>, fields: Vec<StructField>) -> Self {
-        Self{ id, fields }
+        Self { id, fields }
     }
 
     pub fn generate_formatter(&self) -> Vec<Token> {
-        let mut formatting_function = format!("
+        let mut formatting_function = format!(
+            "
             impl Debug for {} {{
                 fn fmt_debug(&self, fmt: &mut Formatter) -> FormattingError {{
-                    let mut debug = fmt.debug_struct(\"{}\");", self.id.inner(), self.id.inner());
+                    let mut debug = fmt.debug_struct(\"{}\");",
+            self.id.inner(),
+            self.id.inner()
+        );
         for field in &self.fields {
             formatting_function += match &field.typ {
-                Type::Path(_) => format!("debug.field(\"{}\", format_args$(\"{{:?}}\", self.{}));", field.id.inner(), field.id.inner()),
-                Type::Pointer(ptr) => format!("
-                    if self.{} != (:*{})0 {{
+                Type::Path(_) => format!(
+                    "debug.field(\"{}\", format_args$(\"{{:?}}\", self.{}));",
+                    field.id.inner(),
+                    field.id.inner()
+                ),
+                Type::Pointer(ptr) => format!(
+                    "
+                    if self.{} != (:*const {})0 {{
                         debug.field(\"{}\", format_args$(\"{{:?}}\", self.{}));
                     }}
-                ", field.id.inner(), ptr.typ.get_full_name(), field.id.inner(), field.id.inner()),
+                ",
+                    field.id.inner(),
+                    ptr.typ.get_full_name(),
+                    field.id.inner(),
+                    field.id.inner()
+                ),
                 Type::Array(_) => "".into(),
                 _ => "".into(),
-            }.as_str();
+            }
+            .as_str();
         }
         formatting_function += "debug.finish();}}";
         let mut lexer = Lexer::from(formatting_function.chars().collect());
@@ -55,7 +69,7 @@ impl StructDef {
     }
 }
 
-#[derive(Debug, Visitable)]
+#[derive(Debug, Clone)]
 pub struct StructLiteral {
     pub id: Tagged<String>,
     pub inits: Vec<(Option<Tagged<String>>, AST)>,
@@ -63,11 +77,11 @@ pub struct StructLiteral {
 
 impl StructLiteral {
     pub fn new(id: Tagged<String>, inits: Vec<(Option<Tagged<String>>, AST)>) -> Self {
-        Self{ id, inits }
+        Self { id, inits }
     }
 }
 
-#[derive(Debug, Visitable)]
+#[derive(Debug, Clone)]
 pub struct Impl {
     pub typ: Tagged<String>,
     pub body: Block,
@@ -76,11 +90,11 @@ pub struct Impl {
 
 impl Impl {
     pub fn new(typ: Tagged<String>, body: Block, trat: Option<Tagged<String>>) -> Self {
-        Self{ typ, body, trat }
+        Self { typ, body, trat }
     }
 }
 
-#[derive(Debug, Visitable)]
+#[derive(Debug, Clone)]
 pub struct EnumDef {
     pub id: Tagged<String>,
     pub variants: Vec<String>,
@@ -89,6 +103,6 @@ pub struct EnumDef {
 
 impl EnumDef {
     pub fn new(id: Tagged<String>, variants: Vec<String>, typ: Type) -> Self {
-        Self{ id, variants, typ }
+        Self { id, variants, typ }
     }
 }

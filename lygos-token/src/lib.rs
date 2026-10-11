@@ -1,4 +1,8 @@
-use std::{borrow::Cow, ops::{Add, Range}, path::PathBuf};
+use std::{
+    borrow::Cow,
+    ops::{Add, Range},
+    path::PathBuf,
+};
 
 #[derive(Debug, Clone)]
 pub struct Tagged<T> {
@@ -8,7 +12,7 @@ pub struct Tagged<T> {
 
 impl<T> Tagged<T> {
     pub fn new(loc: Location, value: T) -> Tagged<T> {
-        Self{ loc, inner: value }
+        Self { loc, inner: value }
     }
 
     pub fn inner(&self) -> &T {
@@ -26,7 +30,10 @@ impl<T> Tagged<T> {
 
 impl From<Token> for Tagged<String> {
     fn from(value: Token) -> Self {
-        Self{ inner: value.typ.as_str().to_string(), loc: value.loc }
+        Self {
+            inner: value.typ.as_str().to_string(),
+            loc: value.loc,
+        }
     }
 }
 
@@ -38,7 +45,10 @@ pub struct Location {
 
 impl Location {
     pub fn new(file: impl Into<PathBuf>, range: Range<usize>) -> Self {
-        Self{ file: file.into(), range }
+        Self {
+            file: file.into(),
+            range,
+        }
     }
 }
 
@@ -47,7 +57,13 @@ impl Add for Location {
 
     fn add(self, rhs: Self) -> Self::Output {
         assert_eq!(self.file, rhs.file);
-        Self{ file: self.file.clone(), range: Range { start: self.range.start, end: rhs.range.end } }
+        Self {
+            file: self.file.clone(),
+            range: Range {
+                start: self.range.start,
+                end: rhs.range.end,
+            },
+        }
     }
 }
 
@@ -110,6 +126,7 @@ pub enum TokenType {
     KwRet,
     KwIn,
     KwInclude,
+    KwImport,
     KwImpl,
     KwType,
     KwStatic,
@@ -121,7 +138,6 @@ pub enum TokenType {
     KwContinue,
     //KwDefer
     //KwClaim,
-
     Eof,
 }
 
@@ -176,6 +192,7 @@ impl TokenType {
             TokenType::KwRet => Cow::Borrowed("return"),
             TokenType::KwIn => Cow::Borrowed("in"),
             TokenType::KwInclude => Cow::Borrowed("include"),
+            TokenType::KwImport => Cow::Borrowed("import"),
             TokenType::KwImpl => Cow::Borrowed("impl"),
             TokenType::KwType => Cow::Borrowed("type"),
             TokenType::KwStatic => Cow::Borrowed("static"),
@@ -193,11 +210,11 @@ impl TokenType {
 #[derive(Debug, Clone)]
 pub struct Token {
     pub typ: TokenType,
-    pub loc: Location
+    pub loc: Location,
 }
 
 impl Token {
     pub fn new(typ: TokenType, loc: Location) -> Self {
-        Self{ typ, loc }
+        Self { typ, loc }
     }
 }

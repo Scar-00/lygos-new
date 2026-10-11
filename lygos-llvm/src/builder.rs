@@ -2,12 +2,20 @@ use std::marker::PhantomData;
 
 use crate::{context::Context, ffi::{self, to_cstr, CastOps}, types::TypeRef, value::{BasicBlock, ValueRef}};
 
+#[repr(u32)]
+#[derive(Clone, Copy)]
+pub enum BinaryOp { Add, Sub, Mul, Div, Rem, Eq, Ne, Lt, Le, Gt, Ge }
+
 pub struct IRBuilder<'ctx> {
     phantom: PhantomData<&'ctx Context>,
     ptr: *mut (),
 }
 
 impl<'a> IRBuilder<'a> {
+    /// Reserve a fixed-size local once, even when used inside a loop.
+    pub fn create_entry_alloca(&self, ty: &TypeRef) -> ValueRef {
+        ValueRef::new(unsafe { ffi::BuilderCreateEntryAlloca(self.ptr, ty.0) })
+    }
     pub fn new(ctx: &'a Context) -> Self {
         Self{ ptr: unsafe { ffi::CreateIRBuilder(ctx.ptr) }, phantom: PhantomData{} }
     }
@@ -101,6 +109,10 @@ impl<'a> IRBuilder<'a> {
         ValueRef::new(unsafe{ ffi::BuilderCreateAdd(self.ptr, lhs.0, rhs.0) })
     }
 
+    pub fn create_typed_binary(&self, lhs: &ValueRef, rhs: &ValueRef, op: BinaryOp, is_unsigned: bool) -> ValueRef {
+        ValueRef::new(unsafe { ffi::BuilderCreateTypedBinary(self.ptr, lhs.0, rhs.0, op as u32, is_unsigned) })
+    }
+
     pub fn create_sub(&self, lhs: &ValueRef, rhs: &ValueRef) -> ValueRef {
         ValueRef::new(unsafe{ ffi::BuilderCreateSub(self.ptr, lhs.0, rhs.0) })
     }
@@ -142,7 +154,8 @@ impl<'a> IRBuilder<'a> {
     }
 
     pub fn create_global_string_pointer<S: AsRef<str>>(&self, s: S) -> ValueRef {
-        ValueRef::new(unsafe{ ffi::BuilderCreateGlobalStringPointer(self.ptr, to_cstr!(s.as_ref())) })
+        let bytes = s.as_ref().as_bytes();
+        ValueRef::new(unsafe { ffi::BuilderCreateGlobalStringBytes(self.ptr, bytes.as_ptr(), bytes.len()) })
     }
 }
 

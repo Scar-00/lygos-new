@@ -4,7 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+lygos-codegen = { path = "../lygos-codegen" }
+lygos-llvm = { path = "../lygos-llvm" }
 lygos-util = { path = "../lygos-util/" }
 lygos-token = { path = "../lygos-token/" }
 lygos-ast = { path = "../lygos-ast/" }
 lygos-logging = { path = "../lygos-logging/" }
+lygos-lexer = { path = "../lygos-lexer/" }
+
+[dev-dependencies]
+lygos-lexer = { path = "../lygos-lexer/" }

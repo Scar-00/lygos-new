@@ -4,9 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [workspace]
-members = ["lygos-lexer", "lygos-parser", "lygos-ast", "lygos-token", "lygos-logging", "lygos-macros", "lygos-util", "lygos-llvm"]
+members = ["lygos-codegen", "lygos-lexer", "lygos-parser", "lygos-ast", "lygos-token", "lygos-logging", "lygos-macros", "lygos-util", "lygos-llvm"]
 
 [dependencies]
+lygos-codegen = { path = "./lygos-codegen" }
 lygos-lexer = { path = "./lygos-lexer/" }
 lygos-parser = { path = "./lygos-parser/" }
 lygos-token = { path = "./lygos-token/" }
@@ -19,6 +20,9 @@ lazy_static = { workspace = true }
 #inkwell = { workspace = true }
 libffi = { workspace = true }
 color-eyre = "0.6.5"
+
+[target.'cfg(windows)'.dependencies]
+cc = "1.2"
 
 [workspace.dependencies]
 thiserror = "2.0.12"

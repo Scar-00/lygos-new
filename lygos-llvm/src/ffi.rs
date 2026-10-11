@@ -64,7 +64,11 @@ unsafe extern "C" {
     pub fn ModuleGetDataLayout(m: *mut ()) -> *mut ();
 
     pub fn CreateJitEngine() -> *mut ();
-    pub fn JitEngineAddModule(engine: *mut (), m: *mut ());
+    pub fn DestroyJitEngine(engine: *mut ());
+    pub fn JitEngineError(engine: *mut ()) -> FFIString;
+    pub fn JitEngineConfigureModule(engine: *mut (), module: *mut ());
+    pub fn JitEngineDefineSymbol(engine: *mut (), name: CStr, address: *mut ()) -> bool;
+    pub fn JitEngineAddModule(engine: *mut (), m: *mut ()) -> bool;
     pub fn JitEngineLookup(engine: *mut (), name: CStr) -> *mut ();
 
     pub fn DataLayoutGetTypeAllocSizeInBits(dl: *mut (), ty: *mut ()) -> usize;
@@ -82,6 +86,7 @@ unsafe extern "C" {
     pub fn BuilderCreateStore(builder: *mut (), value: *mut (), ptr: *mut ()) -> *mut ();
     pub fn BuilderCreateLoad(builder: *mut (), ty: *mut (), value: *mut (), name: CStr) -> *mut ();
     pub fn BuilderCreateAlloca(builder: *mut (), ty: *mut (), array_size: *mut ()) -> *mut ();
+    pub fn BuilderCreateEntryAlloca(builder: *mut (), ty: *mut ()) -> *mut ();
     pub fn BuilderCreateRet(builder: *mut (), value: *mut ()) -> *mut ();
     pub fn BuilderCreateRetVoid(builder: *mut ()) -> *mut ();
     pub fn BuilderCreatePtrCall(
@@ -127,6 +132,8 @@ unsafe extern "C" {
     ) -> *mut ();
     pub fn BuilderCreatePointerCast(builder: *mut (), value: *mut (), dest_ty: *mut ()) -> *mut ();
     pub fn BuilderCreateAdd(builder: *mut (), lhs: *mut (), rhs: *mut ()) -> *mut ();
+    pub fn BuilderCreateTypedBinary(builder: *mut (), lhs: *mut (), rhs: *mut (), op: u32, is_unsigned: bool) -> *mut ();
+    pub fn BuilderCreateGlobalStringBytes(builder: *mut (), data: *const u8, len: usize) -> *mut ();
     pub fn BuilderCreateSub(builder: *mut (), lhs: *mut (), rhs: *mut ()) -> *mut ();
     pub fn BuilderCreateMul(builder: *mut (), lhs: *mut (), rhs: *mut ()) -> *mut ();
     pub fn BuilderCreateDiv(builder: *mut (), lhs: *mut (), rhs: *mut ()) -> *mut ();
@@ -189,6 +196,7 @@ unsafe extern "C" {
     pub fn TypeIsArrayType(ty: *mut ()) -> bool;
     pub fn TypeCanLossLesslyBitCast(ty: *mut (), dest: *mut ()) -> bool;
     pub fn TypeGetIntBitWidth(ty: *mut ()) -> u32;
+    pub fn TypeGetElementOffset(ty: *mut (), layout: *mut (), idx: usize) -> usize;
 
     pub fn TypeGetContainedType(ty: *mut (), index: usize) -> *mut ();
     pub fn TypeGetNumContainedTypes(ty: *mut ()) -> usize;
@@ -216,6 +224,7 @@ unsafe extern "C" {
     pub fn BasicBlockHasNUses(bb: *mut (), uses: usize) -> bool;
 
     pub fn PrintModule(m: *mut ()) -> FFIString;
+    pub fn ModuleCreateGlobalStringBytes(module: *mut (), data: *const u8, len: usize) -> *mut ();
 
     pub fn PrintValue(value: *mut ()) -> FFIString;
     pub fn ValueType(value: *mut ()) -> *mut ();
